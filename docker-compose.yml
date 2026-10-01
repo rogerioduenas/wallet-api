@@ -1,0 +1,35 @@
+services:
+  db-container:
+    image: postgres:16-alpine
+    container_name: wallet-db
+    restart: always
+    environment:
+      POSTGRES_DB: ${DB_NAME:-wallet_db}
+      POSTGRES_USER: ${DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U $${POSTGRES_USER:-postgres} -d $${POSTGRES_DB:-wallet_db}" ]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  api-spring:
+    build: .
+    container_name: wallet-api
+    ports:
+      - "8080:8080"
+    depends_on:
+      db-container:
+        condition: service_healthy
+    environment:
+      DB_HOST: db-container
+      DB_NAME: ${DB_NAME:-wallet_db}
+      DB_USER: ${DB_USER:-postgres}
+      DB_PASSWORD: ${DB_PASSWORD:-postgres}
+
+volumes:
+  postgres_data:
