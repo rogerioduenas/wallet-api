@@ -1,15 +1,22 @@
 package com.rogerio.wallet_api;
 
-import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
+import org.testcontainers.containers.PostgreSQLContainer;
+import org.testcontainers.junit.jupiter.Container;
+import org.testcontainers.junit.jupiter.Testcontainers;
 
 @SpringBootTest
-@Disabled("Disabled until Database Container (Task 2) and Testcontainers are configured")
+@Testcontainers
 class WalletApiApplicationTests {
 
-	@Test
-	void contextLoads() {
-	}
+  @Container
+  @ServiceConnection
+  static PostgreSQLContainer<?> postgres = new PostgreSQLContainer<>("postgres:16-alpine");
 
+  @Test
+  @DisplayName("Should successfully load the Spring application context")
+  void contextLoads() {}
 }
