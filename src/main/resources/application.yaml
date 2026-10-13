@@ -20,3 +20,8 @@ spring:
     enabled: true
     locations: classpath:db/migration
     baseline-on-migrate: true
+api:
+  security:
+    jwt:
+      secret: ${SECRET_KEY:defaultSecretKeyForTestingPurposesOnlyNeedsToBeLongEnough32Bytes}
+      expiration-ms: ${EXPIRATION_TOKEN:3600000}

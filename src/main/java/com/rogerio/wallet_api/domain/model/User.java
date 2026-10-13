@@ -28,6 +28,10 @@ public class User {
   @Column(name = "password", nullable = false)
   private String password;
 
+  @Enumerated(EnumType.STRING)
+  @Column(name = "role", nullable = false)
+  private Role role = Role.ROLE_USER;
+
   @Column(name = "created_at", nullable = false, updatable = false)
   @Setter(AccessLevel.NONE)
   private Instant createdAt;

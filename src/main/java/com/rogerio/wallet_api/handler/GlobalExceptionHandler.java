@@ -1,6 +1,7 @@
 package com.rogerio.wallet_api.handler;
 
 import com.rogerio.wallet_api.exception.EmailAlreadyExistsException;
+import com.rogerio.wallet_api.exception.InvalidCredentialsException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
@@ -33,7 +34,8 @@ public class GlobalExceptionHandler {
 
   @ExceptionHandler(MethodArgumentNotValidException.class)
   public ProblemDetail handleMethodArgumentNotValidException(MethodArgumentNotValidException ex) {
-    record InvalidParam(String name, String reason) {}
+    record InvalidParam(String name, String reason) {
+    }
 
     ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(
         HttpStatus.BAD_REQUEST,
@@ -55,6 +57,21 @@ public class GlobalExceptionHandler {
     return problemDetail;
   }
 
+  @ExceptionHandler(InvalidCredentialsException.class)
+  public ProblemDetail handleInvalidCredentialsException(InvalidCredentialsException ex) {
+    ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(
+        HttpStatus.UNAUTHORIZED,
+        ex.getMessage()
+    );
+
+    problemDetail.setTitle("Invalid Credentials");
+    problemDetail.setType(ErrorTypes.INVALID_CREDENTIALS);
+    problemDetail.setProperty("timestamp", Instant.now());
+
+    return problemDetail;
+  }
+
+
   @ExceptionHandler(Exception.class)
   public ProblemDetail handleUncaughtException(Exception ex) {
     log.error("Unhandled exception caught in GlobalExceptionHandler", ex);
@@ -70,4 +87,5 @@ public class GlobalExceptionHandler {
 
     return problemDetail;
   }
+
 }
