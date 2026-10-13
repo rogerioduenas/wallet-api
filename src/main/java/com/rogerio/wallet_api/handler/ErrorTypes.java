@@ -9,6 +9,7 @@ public final class ErrorTypes {
   public static final URI EMAIL_ALREADY_EXISTS = URI.create(BASE_URL + "email-already-exists");
   public static final URI INVALID_PARAMS = URI.create(BASE_URL + "invalid-parameters");
   public static final URI INTERNAL_SERVER_ERROR = URI.create(BASE_URL + "internal-server-error");
+  public static final URI INVALID_CREDENTIALS = URI.create(BASE_URL + "invalid-credentials");
 
   private ErrorTypes() {}
 }
