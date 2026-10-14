@@ -25,3 +25,7 @@ api:
     jwt:
       secret: ${SECRET_KEY:defaultSecretKeyForTestingPurposesOnlyNeedsToBeLongEnough32Bytes}
       expiration-ms: ${EXPIRATION_TOKEN:3600000}
+app:
+  admin:
+    email: ${ADMIN_EMAIL:admin@email.com}
+    password: ${ADMIN_PASSWORD:admin123}
