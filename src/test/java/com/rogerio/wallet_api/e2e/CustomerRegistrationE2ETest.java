@@ -4,7 +4,7 @@ import com.rogerio.wallet_api.domain.model.User;
 import com.rogerio.wallet_api.domain.model.Wallet;
 import com.rogerio.wallet_api.domain.repository.UserRepository;
 import com.rogerio.wallet_api.domain.repository.WalletRepository;
-import com.rogerio.wallet_api.dto.request.UserRegistrationRequest;
+import com.rogerio.wallet_api.dto.request.CustomerRegistrationRequest;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -18,7 +18,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-class UserRegistrationE2ETest extends BaseE2ETest {
+class CustomerRegistrationE2ETest extends BaseE2ETest {
 
   @Autowired
   private UserRepository userRepository;
@@ -36,10 +36,10 @@ class UserRegistrationE2ETest extends BaseE2ETest {
   @DisplayName("Should successfully register a new user, create a wallet, and persist them in the database")
   void givenValidRegistrationRequest_whenRegisterUser_thenCreateUserAndWallet() throws Exception {
     // Given
-    UserRegistrationRequest request = new UserRegistrationRequest("Mike", "mike@email.com", "password");
+    CustomerRegistrationRequest request = new CustomerRegistrationRequest("Mike", "mike@email.com", "password");
 
     // When
-    mockMvc.perform(post("/api/v1/users/register")
+    mockMvc.perform(post("/api/v1/customers/register")
             .contentType(MediaType.APPLICATION_JSON)
             .content(objectMapper.writeValueAsString(request)))
         .andExpect(status().isCreated())
@@ -64,17 +64,17 @@ class UserRegistrationE2ETest extends BaseE2ETest {
   void givenExistingUserEmail_whenRegisterDuplicateUser_thenReturnConflict() throws Exception {
     // Given
     String existingEmail = "mike@email.com";
-    var initialRequest = new UserRegistrationRequest("Mike", existingEmail, "password");
+    var initialRequest = new CustomerRegistrationRequest("Mike", existingEmail, "password");
 
-    mockMvc.perform(post("/api/v1/users/register")
+    mockMvc.perform(post("/api/v1/customers/register")
             .contentType(MediaType.APPLICATION_JSON)
             .content(objectMapper.writeValueAsString(initialRequest)))
         .andExpect(status().isCreated());
 
-    var duplicateRequest = new UserRegistrationRequest("Anna", existingEmail, "password");
+    var duplicateRequest = new CustomerRegistrationRequest("Anna", existingEmail, "password");
 
     // When
-    var response = mockMvc.perform(post("/api/v1/users/register")
+    var response = mockMvc.perform(post("/api/v1/customers/register")
         .contentType(MediaType.APPLICATION_JSON)
         .content(objectMapper.writeValueAsString(duplicateRequest)));
 

@@ -6,16 +6,14 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
-import org.springframework.validation.FieldError;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.core.AuthenticationException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 import java.time.Instant;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
-import java.util.stream.Collectors;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
@@ -71,6 +69,32 @@ public class GlobalExceptionHandler {
     return problemDetail;
   }
 
+  @ExceptionHandler(AuthenticationException.class)
+  public ProblemDetail handleAuthenticationException(AuthenticationException ex) {
+    ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(
+        HttpStatus.UNAUTHORIZED,
+        ex.getMessage()
+    );
+    problemDetail.setTitle("Authentication Failed");
+    problemDetail.setType(ErrorTypes.UNAUTHORIZED);
+    problemDetail.setProperty("timestamp", Instant.now());
+
+    return problemDetail;
+  }
+
+  @ExceptionHandler(AccessDeniedException.class)
+  public ProblemDetail handleAccessDeniedException(AccessDeniedException ex) {
+    ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(
+        HttpStatus.FORBIDDEN,
+        ex.getMessage()
+    );
+
+    problemDetail.setTitle("Access Denied");
+    problemDetail.setType(ErrorTypes.FORBIDDEN);
+    problemDetail.setProperty("timestamp", Instant.now());
+
+    return problemDetail;
+  }
 
   @ExceptionHandler(Exception.class)
   public ProblemDetail handleUncaughtException(Exception ex) {
@@ -87,5 +111,4 @@ public class GlobalExceptionHandler {
 
     return problemDetail;
   }
-
 }

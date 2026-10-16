@@ -1,5 +1,7 @@
 package com.rogerio.wallet_api.service;
 
+import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
 import lombok.Getter;
@@ -40,5 +42,32 @@ public class TokenService {
         .expiration(Date.from(expiryDate))
         .signWith(secretKey)
         .compact();
+  }
+
+  public boolean isTokenValid(String token) {
+    try {
+      Claims claims = parseClaims(token);
+      return !claims.getExpiration().before(new Date());
+    } catch (JwtException | IllegalArgumentException e) {
+      return false;
+    }
+  }
+
+  public String extractUsername(String token) {
+    Claims claims = parseClaims(token);
+    return claims.getSubject();
+  }
+
+  public String extractRole(String token) {
+    Claims claims = parseClaims(token);
+    return claims.get("role", String.class);
+  }
+
+  private Claims parseClaims(String token) {
+    return Jwts.parser()
+        .verifyWith(secretKey)
+        .build()
+        .parseSignedClaims(token)
+        .getPayload();
   }
 }
