@@ -9,6 +9,7 @@ import org.springframework.boot.CommandLineRunner;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 
+import java.time.Clock;
 import java.time.Instant;
 
 @Component
@@ -16,6 +17,7 @@ public class MasterAdminSeeder implements CommandLineRunner {
 
   private final UserRepository userRepository;
   private final PasswordEncoder passwordEncoder;
+  private final Clock clock;
 
   @Value("${app.admin.email}")
   private String adminEmail;
@@ -23,9 +25,10 @@ public class MasterAdminSeeder implements CommandLineRunner {
   @Value("${app.admin.password}")
   private String adminPassword;
 
-  public MasterAdminSeeder(UserRepository userRepository, PasswordEncoder passwordEncoder) {
+  public MasterAdminSeeder(UserRepository userRepository, PasswordEncoder passwordEncoder, Clock clock) {
     this.userRepository = userRepository;
     this.passwordEncoder = passwordEncoder;
+    this.clock = clock;
   }
 
   @Override
@@ -36,7 +39,7 @@ public class MasterAdminSeeder implements CommandLineRunner {
           "Master Admin",
           adminEmail,
           passwordEncoder.encode(adminPassword),
-          Instant.now()
+          clock.instant()
       );
       admin.setRole(Role.ROLE_ADMIN);
 

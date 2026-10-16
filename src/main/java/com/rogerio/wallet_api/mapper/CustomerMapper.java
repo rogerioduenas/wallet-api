@@ -2,16 +2,16 @@ package com.rogerio.wallet_api.mapper;
 
 import com.rogerio.wallet_api.domain.model.User;
 import com.rogerio.wallet_api.domain.model.Wallet;
-import com.rogerio.wallet_api.dto.request.UserRegistrationRequest;
-import com.rogerio.wallet_api.dto.response.UserRegistrationResponse;
+import com.rogerio.wallet_api.dto.request.CustomerRegistrationRequest;
+import com.rogerio.wallet_api.dto.response.CustomerRegistrationResponse;
 import org.springframework.stereotype.Component;
 
 import java.time.Instant;
 
 @Component
-public class UserMapper {
+public class CustomerMapper {
 
-  public User toEntity(UserRegistrationRequest request, String encodedPassword, Instant createdAt) {
+  public User toEntity(CustomerRegistrationRequest request, String encodedPassword, Instant createdAt) {
     return new User(
         request.fullName(),
         request.email(),
@@ -20,8 +20,8 @@ public class UserMapper {
     );
   }
 
-  public UserRegistrationResponse toDTO(User user, Wallet wallet) {
-    return new UserRegistrationResponse(
+  public CustomerRegistrationResponse toDTO(User user, Wallet wallet) {
+    return new CustomerRegistrationResponse(
         user.getId(),
         user.getFullName(),
         user.getEmail(),

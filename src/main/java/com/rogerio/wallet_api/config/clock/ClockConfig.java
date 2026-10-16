@@ -1,4 +1,4 @@
-package com.rogerio.wallet_api.config;
+package com.rogerio.wallet_api.config.clock;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
