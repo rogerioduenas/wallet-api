@@ -4,7 +4,7 @@ import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 
-public record UserRegistrationRequest(
+public record CustomerRegistrationRequest(
     @NotBlank(message = "The name is mandatory")
     String fullName,
 
