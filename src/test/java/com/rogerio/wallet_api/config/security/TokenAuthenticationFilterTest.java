@@ -18,14 +18,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @WebMvcTest(AdminController.class)
-@Import({
-    SecurityConfig.class,
-    DelegatedAuthenticationEntryPoint.class,
-    DelegatedAccessDeniedHandler.class})
 class TokenAuthenticationFilterTest extends BaseWebTest {
-
-  @MockitoBean
-  private TokenService tokenService;
 
   @MockitoBean
   private AdminService adminService;

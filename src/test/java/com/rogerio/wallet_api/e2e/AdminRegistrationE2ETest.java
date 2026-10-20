@@ -5,6 +5,7 @@ import com.rogerio.wallet_api.config.security.TokenAuthenticationFilter;
 import com.rogerio.wallet_api.domain.model.Role;
 import com.rogerio.wallet_api.domain.model.User;
 import com.rogerio.wallet_api.domain.repository.UserRepository;
+import com.rogerio.wallet_api.domain.repository.WalletRepository;
 import com.rogerio.wallet_api.dto.request.AdminRegistrationRequest;
 import com.rogerio.wallet_api.service.TokenService;
 import org.junit.jupiter.api.BeforeEach;
@@ -13,7 +14,6 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
-import org.springframework.test.context.ActiveProfiles;
 
 import java.util.List;
 
@@ -26,6 +26,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 class AdminRegistrationE2ETest extends BaseE2ETest {
 
   @Autowired
+  private WalletRepository walletRepository;
+
+  @Autowired
   private UserRepository userRepository;
 
   @Autowired
@@ -35,6 +38,7 @@ class AdminRegistrationE2ETest extends BaseE2ETest {
 
   @BeforeEach
   void setUp() {
+    walletRepository.deleteAllInBatch();
     userRepository.deleteAllInBatch();
     adminToken = tokenService.generateToken("admin@email.com", Role.ROLE_ADMIN.name());
   }

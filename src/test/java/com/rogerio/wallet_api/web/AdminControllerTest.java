@@ -8,15 +8,20 @@ import com.rogerio.wallet_api.service.AdminService;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 import java.time.Instant;
+import java.util.Collections;
 import java.util.UUID;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -47,7 +52,8 @@ public class AdminControllerTest extends BaseWebTest {
     // When & Then
     mockMvc.perform(post("/api/v1/admins/register")
             .contentType(MediaType.APPLICATION_JSON)
-            .content(objectMapper.writeValueAsString(VALID_REQUEST)))
+            .content(objectMapper.writeValueAsString(VALID_REQUEST))
+        .with(user("user@wallet.com").roles("ADMIN")))
         .andExpect(status().isCreated())
         .andExpect(jsonPath("$.id").value(adminId.toString()))
         .andExpect(jsonPath("$.fullName").value(VALID_NAME))
@@ -68,7 +74,8 @@ public class AdminControllerTest extends BaseWebTest {
     // When & Then
     mockMvc.perform(post("/api/v1/admins/register")
             .contentType(MediaType.APPLICATION_JSON)
-            .content(objectMapper.writeValueAsString(VALID_REQUEST)))
+            .content(objectMapper.writeValueAsString(VALID_REQUEST))
+            .with(user("user@wallet.com").roles("ADMIN")))
         .andExpect(status().isConflict())
         .andExpect(jsonPath("$.detail").value("Email already registered in the system"));
 
@@ -84,10 +91,45 @@ public class AdminControllerTest extends BaseWebTest {
     // When & Then
     mockMvc.perform(post("/api/v1/admins/register")
             .contentType(MediaType.APPLICATION_JSON)
-            .content(objectMapper.writeValueAsString(invalidRequest)))
+            .content(objectMapper.writeValueAsString(invalidRequest))
+            .with(user("user@wallet.com").roles("ADMIN")))
         .andExpect(status().isBadRequest())
         .andExpect(jsonPath("$.title").value("Invalid Input Parameters"))
         .andExpect(jsonPath("$.invalidFields").isArray());
+
+    then(adminService).shouldHaveNoInteractions();
+  }
+
+  @Test
+  @DisplayName("Should return 200 OK with paginated users when user has ADMIN role")
+  void givenAdminUser_whenListUsers_thenReturnPageOfUsers() throws Exception {
+    // Given
+    given(adminService.listUsers(any(Pageable.class)))
+        .willReturn(new PageImpl<>(Collections.emptyList()));
+
+    // When & Then
+    mockMvc.perform(get("/api/v1/admins/users")
+            .with(user("admin@email.com").roles("ADMIN")))
+        .andExpect(status().isOk());
+  }
+
+  @Test
+  @DisplayName("Should return 403 Forbidden when user has CUSTOMER role")
+  void givenCustomerUser_whenListUsers_thenReturnForbidden() throws Exception {
+    // Given / When & Then
+    mockMvc.perform(get("/api/v1/admins/users")
+            .with(user("customer@email.com").roles("CUSTOMER")))
+        .andExpect(status().isForbidden());
+
+    then(adminService).shouldHaveNoInteractions();
+  }
+
+  @Test
+  @DisplayName("Should return 401 Unauthorized when authentication token is missing")
+  void givenUnauthenticatedUser_whenListUsers_thenReturnUnauthorized() throws Exception {
+    // Given / When & Then
+    mockMvc.perform(get("/api/v1/admins/users"))
+        .andExpect(status().isUnauthorized());
 
     then(adminService).shouldHaveNoInteractions();
   }
