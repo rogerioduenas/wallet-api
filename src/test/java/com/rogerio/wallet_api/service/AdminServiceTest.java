@@ -7,6 +7,7 @@ import com.rogerio.wallet_api.dto.request.AdminRegistrationRequest;
 import com.rogerio.wallet_api.dto.response.AdminRegistrationResponse;
 import com.rogerio.wallet_api.exception.EmailAlreadyExistsException;
 import com.rogerio.wallet_api.mapper.AdminMapper;
+import com.rogerio.wallet_api.mapper.UserMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -36,6 +37,9 @@ public class AdminServiceTest {
   PasswordEncoder passwordEncoder;
 
   @Mock
+  UserMapper userMapper;
+
+  @Mock
   AdminMapper adminMapper;
 
   private final Instant fixedInstant = Instant.parse("2026-10-15T10:00:00Z");
@@ -45,7 +49,7 @@ public class AdminServiceTest {
 
   @BeforeEach
   void setUp() {
-    adminService = new AdminService(userRepository, passwordEncoder, adminMapper, clock);
+    adminService = new AdminService(userRepository, passwordEncoder, adminMapper, userMapper, clock);
   }
 
   @Test

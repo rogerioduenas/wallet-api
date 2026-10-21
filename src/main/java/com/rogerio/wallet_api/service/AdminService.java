@@ -5,8 +5,12 @@ import com.rogerio.wallet_api.domain.model.User;
 import com.rogerio.wallet_api.domain.repository.UserRepository;
 import com.rogerio.wallet_api.dto.request.AdminRegistrationRequest;
 import com.rogerio.wallet_api.dto.response.AdminRegistrationResponse;
+import com.rogerio.wallet_api.dto.response.UserResponse;
 import com.rogerio.wallet_api.exception.EmailAlreadyExistsException;
 import com.rogerio.wallet_api.mapper.AdminMapper;
+import com.rogerio.wallet_api.mapper.UserMapper;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
@@ -18,17 +22,19 @@ public class AdminService {
   private final UserRepository userRepository;
   private final PasswordEncoder passwordEncoder;
   private final AdminMapper adminMapper;
+  private final UserMapper userMapper;
   private final Clock clock;
 
 
   public AdminService(
       UserRepository userRepository,
       PasswordEncoder passwordEncoder,
-      AdminMapper adminMapper,
+      AdminMapper adminMapper, UserMapper userMapper,
       Clock clock) {
     this.userRepository = userRepository;
     this.passwordEncoder = passwordEncoder;
     this.adminMapper = adminMapper;
+    this.userMapper = userMapper;
     this.clock = clock;
   }
 
@@ -44,5 +50,10 @@ public class AdminService {
     User savedUser = userRepository.save(user);
 
     return adminMapper.toDTO(savedUser);
+  }
+
+  public Page<UserResponse> listUsers(Pageable pageable) {
+    Page<User> users = userRepository.findAll(pageable);
+    return users.map(userMapper::toDto);
   }
 }

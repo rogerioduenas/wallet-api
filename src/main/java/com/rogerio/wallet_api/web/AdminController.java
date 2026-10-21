@@ -2,14 +2,15 @@ package com.rogerio.wallet_api.web;
 
 import com.rogerio.wallet_api.dto.request.AdminRegistrationRequest;
 import com.rogerio.wallet_api.dto.response.AdminRegistrationResponse;
+import com.rogerio.wallet_api.dto.response.UserResponse;
 import com.rogerio.wallet_api.service.AdminService;
 import com.rogerio.wallet_api.web.util.UriHelper;
 import jakarta.validation.Valid;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import java.net.URI;
 
@@ -31,5 +32,12 @@ public class AdminController {
         "api/v1/admins/{id}", response.id());
 
     return ResponseEntity.created(location).body(response);
+  }
+
+  @GetMapping("/users")
+  public ResponseEntity<Page<UserResponse>> getUsers(
+      @PageableDefault(page = 0, size = 5, sort = "fullName") Pageable pageable) {
+    Page<UserResponse> response = adminService.listUsers(pageable);
+    return ResponseEntity.ok(response);
   }
 }
