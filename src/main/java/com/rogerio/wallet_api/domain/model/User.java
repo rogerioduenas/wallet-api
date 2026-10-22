@@ -36,6 +36,10 @@ public class User {
   @Setter(AccessLevel.NONE)
   private Instant createdAt;
 
+  @Enumerated(EnumType.STRING)
+  @Column(name = "status", nullable = false)
+  private Status status = Status.ACTIVE;
+
   public User(String fullName, String email, String password, Instant createdAt) {
     this.fullName = fullName;
     this.email = email;

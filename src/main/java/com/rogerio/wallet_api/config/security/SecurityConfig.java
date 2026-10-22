@@ -43,6 +43,7 @@ public class SecurityConfig {
             .requestMatchers(HttpMethod.POST, "/api/v1/auth/login").permitAll()
             .requestMatchers(HttpMethod.POST, "/api/v1/admins/register").hasRole("ADMIN")
             .requestMatchers(HttpMethod.GET, "/api/v1/admins/users").hasRole("ADMIN")
+            .requestMatchers(HttpMethod.PATCH, "/api/v1/admins/users/{id}/status").hasRole("ADMIN")
             .anyRequest().authenticated()
         )
         .exceptionHandling(exception -> exception

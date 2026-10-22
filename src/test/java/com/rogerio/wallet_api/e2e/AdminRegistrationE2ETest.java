@@ -3,6 +3,7 @@ package com.rogerio.wallet_api.e2e;
 import com.rogerio.wallet_api.config.security.SecurityConfig;
 import com.rogerio.wallet_api.config.security.TokenAuthenticationFilter;
 import com.rogerio.wallet_api.domain.model.Role;
+import com.rogerio.wallet_api.domain.model.Status;
 import com.rogerio.wallet_api.domain.model.User;
 import com.rogerio.wallet_api.domain.repository.UserRepository;
 import com.rogerio.wallet_api.domain.repository.WalletRepository;

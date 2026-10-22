@@ -1,10 +1,12 @@
 package com.rogerio.wallet_api.service;
 
+import com.rogerio.wallet_api.domain.model.Status;
 import com.rogerio.wallet_api.domain.model.User;
 import com.rogerio.wallet_api.domain.repository.UserRepository;
 import com.rogerio.wallet_api.dto.request.AuthLoginRequest;
 import com.rogerio.wallet_api.dto.response.AuthTokenResponse;
 import com.rogerio.wallet_api.exception.InvalidCredentialsException;
+import com.rogerio.wallet_api.exception.UserBlockedException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
@@ -30,6 +32,10 @@ public class AuthService {
 
     if (!passwordEncoder.matches(request.password(), user.getPassword())) {
       throw new InvalidCredentialsException("Invalid email or password");
+    }
+
+    if (user.getStatus().equals(Status.BLOCKED)) {
+      throw new UserBlockedException("User is blocked");
     }
 
     String role = user.getRole().name();

@@ -4,17 +4,22 @@ import com.rogerio.wallet_api.domain.model.Role;
 import com.rogerio.wallet_api.domain.model.User;
 import com.rogerio.wallet_api.domain.repository.UserRepository;
 import com.rogerio.wallet_api.dto.request.AdminRegistrationRequest;
+import com.rogerio.wallet_api.dto.request.UpdateStatusRequest;
 import com.rogerio.wallet_api.dto.response.AdminRegistrationResponse;
 import com.rogerio.wallet_api.dto.response.UserResponse;
 import com.rogerio.wallet_api.exception.EmailAlreadyExistsException;
+import com.rogerio.wallet_api.exception.UserNotFoundException;
 import com.rogerio.wallet_api.mapper.AdminMapper;
 import com.rogerio.wallet_api.mapper.UserMapper;
+import jakarta.transaction.Transactional;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import java.time.Clock;
+import java.util.Optional;
+import java.util.UUID;
 
 @Service
 public class AdminService {
@@ -55,5 +60,16 @@ public class AdminService {
   public Page<UserResponse> listUsers(Pageable pageable) {
     Page<User> users = userRepository.findAll(pageable);
     return users.map(userMapper::toDto);
+  }
+
+  @Transactional
+  public UserResponse updateUserStatus(UUID id, UpdateStatusRequest request) {
+    User user = userRepository.findById(id)
+        .orElseThrow(() -> new UserNotFoundException(
+            "User not found, please check the id and try again."
+        ));
+    user.setStatus(request.status());
+
+    return userMapper.toDto(user);
   }
 }
