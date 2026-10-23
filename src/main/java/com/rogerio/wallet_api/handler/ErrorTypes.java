@@ -12,6 +12,8 @@ public final class ErrorTypes {
   public static final URI INVALID_CREDENTIALS = URI.create(BASE_URL + "invalid-credentials");
   public static final URI UNAUTHORIZED = URI.create(BASE_URL + "unauthorized");
   public static final URI FORBIDDEN = URI.create(BASE_URL + "forbidden");
+  public static final URI NOT_FOUND = URI.create(BASE_URL + "user-not-found");
+  public static final URI INVALID_REQUEST_BODY = URI.create(BASE_URL + "invalid-request-body");
 
   private ErrorTypes() {}
 }

@@ -1,6 +1,7 @@
 package com.rogerio.wallet_api.web;
 
 import com.rogerio.wallet_api.dto.request.AdminRegistrationRequest;
+import com.rogerio.wallet_api.dto.request.UpdateStatusRequest;
 import com.rogerio.wallet_api.dto.response.AdminRegistrationResponse;
 import com.rogerio.wallet_api.dto.response.UserResponse;
 import com.rogerio.wallet_api.service.AdminService;
@@ -13,6 +14,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.net.URI;
+import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/v1/admins")
@@ -38,6 +40,16 @@ public class AdminController {
   public ResponseEntity<Page<UserResponse>> getUsers(
       @PageableDefault(page = 0, size = 5, sort = "fullName") Pageable pageable) {
     Page<UserResponse> response = adminService.listUsers(pageable);
+    return ResponseEntity.ok(response);
+  }
+
+  @PatchMapping("/users/{id}/status")
+  public ResponseEntity<UserResponse> updateStatus(
+      @PathVariable UUID id,
+      @Valid @RequestBody UpdateStatusRequest request) {
+
+    UserResponse response = adminService.updateUserStatus(id, request);
+
     return ResponseEntity.ok(response);
   }
 }

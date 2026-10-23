@@ -1,11 +1,15 @@
 package com.rogerio.wallet_api.service;
 
 import com.rogerio.wallet_api.domain.model.Role;
+import com.rogerio.wallet_api.domain.model.Status;
 import com.rogerio.wallet_api.domain.model.User;
 import com.rogerio.wallet_api.domain.repository.UserRepository;
 import com.rogerio.wallet_api.dto.request.AdminRegistrationRequest;
+import com.rogerio.wallet_api.dto.request.UpdateStatusRequest;
 import com.rogerio.wallet_api.dto.response.AdminRegistrationResponse;
+import com.rogerio.wallet_api.dto.response.UserResponse;
 import com.rogerio.wallet_api.exception.EmailAlreadyExistsException;
+import com.rogerio.wallet_api.exception.UserNotFoundException;
 import com.rogerio.wallet_api.mapper.AdminMapper;
 import com.rogerio.wallet_api.mapper.UserMapper;
 import org.junit.jupiter.api.BeforeEach;
@@ -20,6 +24,7 @@ import org.springframework.test.util.ReflectionTestUtils;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneId;
+import java.util.Optional;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -97,5 +102,54 @@ public class AdminServiceTest {
     assertThatThrownBy(() -> adminService.register(request))
         .isInstanceOf(EmailAlreadyExistsException.class)
         .hasMessage("Email already registered in the system");
+  }
+
+  @Test
+  @DisplayName("Should successfully update user status when user exists")
+  void givenValidUserIdAndStatus_whenUpdateUserStatus_thenUpdateSuccessfully() {
+    // Given
+    UUID userId = UUID.randomUUID();
+    var request = new UpdateStatusRequest(Status.BLOCKED);
+    Instant fixedInstant = clock.instant();
+
+    User existingUser = new User("Mike", "mike@email.com", "encodedPassword", fixedInstant);
+    existingUser.setRole(Role.ROLE_USER);
+    ReflectionTestUtils.setField(existingUser, "id", userId);
+    existingUser.setStatus(Status.ACTIVE);
+
+    var expectedResponse = new UserResponse(
+        userId,
+        "Mike",
+        "mike@email.com",
+        Role.ROLE_USER,
+        fixedInstant,
+        Status.BLOCKED
+    );
+
+    given(userRepository.findById(userId)).willReturn(Optional.of(existingUser));
+    given(userMapper.toDto(existingUser)).willReturn(expectedResponse);
+
+    // When
+    UserResponse response = adminService.updateUserStatus(userId, request);
+
+    // Then
+    assertThat(response).isNotNull();
+    assertThat(response.status()).isEqualTo(Status.BLOCKED);
+    assertThat(existingUser.getStatus()).isEqualTo(Status.BLOCKED);
+  }
+
+  @Test
+  @DisplayName("Should throw UserNotFoundException when user id does not exist")
+  void givenNonExistentUserId_whenUpdateUserStatus_thenThrowUserNotFoundException() {
+    // Given
+    UUID userId = UUID.randomUUID();
+    var request = new UpdateStatusRequest(Status.BLOCKED);
+
+    given(userRepository.findById(userId)).willReturn(Optional.empty());
+
+    // When & Then
+    assertThatThrownBy(() -> adminService.updateUserStatus(userId, request))
+        .isInstanceOf(UserNotFoundException.class)
+        .hasMessage("User not found, please check the id and try again");
   }
 }
