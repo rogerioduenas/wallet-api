@@ -66,7 +66,7 @@ public class AdminService {
   public UserResponse updateUserStatus(UUID id, UpdateStatusRequest request) {
     User user = userRepository.findById(id)
         .orElseThrow(() -> new UserNotFoundException(
-            "User not found, please check the id and try again."
+            "User not found, please check the id and try again"
         ));
     user.setStatus(request.status());
 
