@@ -1,5 +1,8 @@
 package com.rogerio.wallet_api.config.security;
 
+import com.rogerio.wallet_api.domain.model.Status;
+import com.rogerio.wallet_api.domain.repository.UserRepository;
+import com.rogerio.wallet_api.exception.UserBlockedException;
 import com.rogerio.wallet_api.service.TokenService;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -20,9 +23,11 @@ public class TokenAuthenticationFilter extends OncePerRequestFilter {
   private static final String BEARER_PREFIX = "Bearer ";
 
   private final TokenService tokenService;
+  private final UserRepository userRepository;
 
-  public TokenAuthenticationFilter(TokenService tokenService) {
+  public TokenAuthenticationFilter(TokenService tokenService, UserRepository userRepository) {
     this.tokenService = tokenService;
+    this.userRepository = userRepository;
   }
 
   @Override
@@ -37,26 +42,22 @@ public class TokenAuthenticationFilter extends OncePerRequestFilter {
       String token = header.substring(BEARER_PREFIX.length()).trim();
 
       if (!token.isBlank() && tokenService.isTokenValid(token)) {
-        String userName = tokenService.extractUsername(token);
-        String role = tokenService.extractRole(token);
+        String email = tokenService.extractUserEmail(token);
 
-        List<SimpleGrantedAuthority> authorities = Collections.singletonList(
-            new SimpleGrantedAuthority(role)
-        );
+        userRepository.findByEmail(email)
+            .filter(user -> user.getStatus() == Status.ACTIVE)
+            .ifPresent(user -> {
+              List<SimpleGrantedAuthority> authorities = Collections.singletonList(
+                  new SimpleGrantedAuthority(user.getRole().name())
+              );
 
-        UsernamePasswordAuthenticationToken authentication =
-            new UsernamePasswordAuthenticationToken(
-                userName,
-                null,
-                authorities
-            );
+              UsernamePasswordAuthenticationToken authentication =
+                  new UsernamePasswordAuthenticationToken(email, null, authorities);
 
-        SecurityContextHolder.getContext().setAuthentication(authentication);
+              SecurityContextHolder.getContext().setAuthentication(authentication);
+            });
       }
     }
-
     filterChain.doFilter(request, response);
   }
 }
-
-

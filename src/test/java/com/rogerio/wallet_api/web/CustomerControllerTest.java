@@ -1,5 +1,6 @@
 package com.rogerio.wallet_api.web;
 
+import com.rogerio.wallet_api.domain.repository.UserRepository;
 import com.rogerio.wallet_api.dto.request.CustomerRegistrationRequest;
 import com.rogerio.wallet_api.dto.response.CustomerRegistrationResponse;
 import com.rogerio.wallet_api.exception.EmailAlreadyExistsException;
@@ -25,6 +26,9 @@ public class CustomerControllerTest extends BaseWebTest {
 
   @MockitoBean
   private CustomerService customerService;
+
+  @MockitoBean
+  private UserRepository userRepository;
 
   private final String VALID_NAME = "Mike";
   private final String VALID_EMAIL = "valid@email.com";

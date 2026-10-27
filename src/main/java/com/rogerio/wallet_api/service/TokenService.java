@@ -53,7 +53,7 @@ public class TokenService {
     }
   }
 
-  public String extractUsername(String token) {
+  public String extractUserEmail(String token) {
     Claims claims = parseClaims(token);
     return claims.getSubject();
   }

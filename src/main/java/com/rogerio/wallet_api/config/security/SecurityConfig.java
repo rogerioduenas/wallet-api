@@ -1,5 +1,6 @@
 package com.rogerio.wallet_api.config.security;
 
+import com.rogerio.wallet_api.domain.repository.UserRepository;
 import com.rogerio.wallet_api.service.TokenService;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -28,8 +29,8 @@ public class SecurityConfig {
   }
 
   @Bean
-  public TokenAuthenticationFilter tokenAuthenticationFilter(TokenService tokenService) {
-    return new TokenAuthenticationFilter(tokenService);
+  public TokenAuthenticationFilter tokenAuthenticationFilter(TokenService tokenService, UserRepository userRepository) {
+    return new TokenAuthenticationFilter(tokenService,  userRepository);
   }
 
   @Bean
