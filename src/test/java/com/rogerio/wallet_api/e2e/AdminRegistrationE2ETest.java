@@ -172,8 +172,8 @@ class AdminRegistrationE2ETest extends BaseE2ETest {
   }
 
   @Test
-  @DisplayName("Should return 401 Unauthorized when token belongs to a blocked user")
-  void givenBlockedUserToken_whenRegisterAdmin_thenReturnUnauthorized() throws Exception {
+  @DisplayName("Should return 403 Forbidden when token belongs to a blocked user")
+  void givenBlockedUserToken_whenRegisterAdmin_thenReturnForbidden() throws Exception {
     // Given
     String adminToken = createPersistedAdminToken();
     User tokenAdmin = userRepository.findByEmail(TOKEN_ADMIN_EMAIL).orElseThrow();
@@ -189,7 +189,7 @@ class AdminRegistrationE2ETest extends BaseE2ETest {
             .header("Authorization", "Bearer " + adminToken)
             .contentType(MediaType.APPLICATION_JSON)
             .content(objectMapper.writeValueAsString(request)))
-        .andExpect(status().isUnauthorized());
+        .andExpect(status().isForbidden());
 
     assertThat(userRepository.existsByEmail("admin@email.com")).isFalse();
   }

@@ -83,7 +83,7 @@ class TokenAuthenticationFilterTest extends BaseWebTest {
   }
 
   @Test
-  @DisplayName("Should return 401 when token is valid but user is BLOCKED")
+  @DisplayName("Should return 403 when token is valid but user is BLOCKED")
   void givenValidTokenAndBlockedUser_whenAccessProtectedEndpoint_thenReturnUnauthorized() throws Exception {
     // Given
     givenValidToken();
@@ -93,8 +93,8 @@ class TokenAuthenticationFilterTest extends BaseWebTest {
     // When & Then
     mockMvc.perform(get("/api/v1/admins/users")
             .header("Authorization", "Bearer " + TOKEN))
-        .andExpect(status().isUnauthorized())
-        .andExpect(jsonPath("$.title").value("Authentication Failed"));
+        .andExpect(status().isForbidden())
+        .andExpect(jsonPath("$.title").value("User Blocked"));
   }
 
   @Test
