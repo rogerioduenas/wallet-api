@@ -16,7 +16,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 
-import java.util.List;
+import java.time.Instant;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -25,6 +25,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 @Import({SecurityConfig.class, TokenAuthenticationFilter.class})
 class AdminRegistrationE2ETest extends BaseE2ETest {
+
+  private static final String TOKEN_ADMIN_EMAIL = "token-admin@email.com";
 
   @Autowired
   private WalletRepository walletRepository;
@@ -35,19 +37,24 @@ class AdminRegistrationE2ETest extends BaseE2ETest {
   @Autowired
   private TokenService tokenService;
 
-  private String adminToken;
-
   @BeforeEach
   void setUp() {
     walletRepository.deleteAllInBatch();
     userRepository.deleteAllInBatch();
-    adminToken = tokenService.generateToken("admin@email.com", Role.ROLE_ADMIN.name());
+  }
+
+  private String createPersistedAdminToken() {
+    User tokenAdmin = new User("Token Admin", TOKEN_ADMIN_EMAIL, "irrelevant-hash", Instant.now());
+    tokenAdmin.setRole(Role.ROLE_ADMIN);
+    userRepository.save(tokenAdmin);
+    return tokenService.generateToken(TOKEN_ADMIN_EMAIL, Role.ROLE_ADMIN.name());
   }
 
   @Test
   @DisplayName("Should successfully register a new admin when valid request and valid admin token are provided")
   void givenValidRequestAndToken_whenRegisterAdmin_thenCreateAdminSuccessfully() throws Exception {
     // Given
+    String adminToken = createPersistedAdminToken();
     AdminRegistrationRequest request = new AdminRegistrationRequest(
         "User Admin", "admin@email.com", "password"
     );
@@ -65,9 +72,7 @@ class AdminRegistrationE2ETest extends BaseE2ETest {
         .andExpect(jsonPath("$.createdAt").exists());
 
     // Database Assertions
-    List<User> users = userRepository.findAll();
-    assertThat(users).hasSize(1);
-    User savedAdmin = users.get(0);
+    User savedAdmin = userRepository.findByEmail("admin@email.com").orElseThrow();
     assertThat(savedAdmin.getFullName()).isEqualTo("User Admin");
     assertThat(savedAdmin.getEmail()).isEqualTo("admin@email.com");
     assertThat(savedAdmin.getRole()).isEqualTo(Role.ROLE_ADMIN);
@@ -119,7 +124,9 @@ class AdminRegistrationE2ETest extends BaseE2ETest {
     AdminRegistrationRequest request = new AdminRegistrationRequest(
         "User Admin", "admin@email.com", "password"
     );
-    String customerToken = tokenService.generateToken("customer@email.com", Role.ROLE_USER.name());
+    User customer = new User("Customer", "customer@email.com", "irrelevant-hash", Instant.now());
+    userRepository.save(customer);
+    String customerToken = tokenService.generateToken(customer.getEmail(), Role.ROLE_USER.name());
 
     // When & Then
     mockMvc.perform(post("/api/v1/admins/register")
@@ -129,13 +136,14 @@ class AdminRegistrationE2ETest extends BaseE2ETest {
         .andExpect(status().isForbidden())
         .andExpect(jsonPath("$.title").value("Access Denied"));
 
-    assertThat(userRepository.count()).isZero();
+    assertThat(userRepository.existsByEmail("admin@email.com")).isFalse();
   }
 
   @Test
   @DisplayName("Should return 409 Conflict when attempting to register an admin with an existing email")
   void givenExistingEmail_whenRegisterDuplicateAdmin_thenReturnConflict() throws Exception {
     // Given
+    String adminToken = createPersistedAdminToken();
     String existingEmail = "admin@email.com";
     AdminRegistrationRequest initialRequest = new AdminRegistrationRequest(
         "User Admin", existingEmail, "password"
@@ -160,6 +168,29 @@ class AdminRegistrationE2ETest extends BaseE2ETest {
         .andExpect(jsonPath("$.title").value("Resource Conflict"))
         .andExpect(jsonPath("$.detail").value("Email already registered in the system"));
 
-    assertThat(userRepository.count()).isEqualTo(1);
+    assertThat(userRepository.count()).isEqualTo(2); // token admin + registered admin
+  }
+
+  @Test
+  @DisplayName("Should return 403 Forbidden when token belongs to a blocked user")
+  void givenBlockedUserToken_whenRegisterAdmin_thenReturnForbidden() throws Exception {
+    // Given
+    String adminToken = createPersistedAdminToken();
+    User tokenAdmin = userRepository.findByEmail(TOKEN_ADMIN_EMAIL).orElseThrow();
+    tokenAdmin.setStatus(Status.BLOCKED);
+    userRepository.save(tokenAdmin);
+
+    AdminRegistrationRequest request = new AdminRegistrationRequest(
+        "User Admin", "admin@email.com", "password"
+    );
+
+    // When & Then
+    mockMvc.perform(post("/api/v1/admins/register")
+            .header("Authorization", "Bearer " + adminToken)
+            .contentType(MediaType.APPLICATION_JSON)
+            .content(objectMapper.writeValueAsString(request)))
+        .andExpect(status().isForbidden());
+
+    assertThat(userRepository.existsByEmail("admin@email.com")).isFalse();
   }
 }

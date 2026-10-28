@@ -2,6 +2,7 @@ package com.rogerio.wallet_api.web;
 
 import com.rogerio.wallet_api.domain.model.Role;
 import com.rogerio.wallet_api.domain.model.Status;
+import com.rogerio.wallet_api.domain.repository.UserRepository;
 import com.rogerio.wallet_api.dto.request.AdminRegistrationRequest;
 import com.rogerio.wallet_api.dto.request.UpdateStatusRequest;
 import com.rogerio.wallet_api.dto.response.AdminRegistrationResponse;
@@ -37,6 +38,9 @@ public class AdminControllerTest extends BaseWebTest {
 
   @MockitoBean
   private AdminService adminService;
+
+  @MockitoBean
+  private UserRepository userRepository;
 
   private final String VALID_NAME = "Big Boss";
   private final String VALID_EMAIL = "admin@email.com";
