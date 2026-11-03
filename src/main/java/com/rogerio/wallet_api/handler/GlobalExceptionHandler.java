@@ -1,9 +1,6 @@
 package com.rogerio.wallet_api.handler;
 
-import com.rogerio.wallet_api.exception.EmailAlreadyExistsException;
-import com.rogerio.wallet_api.exception.InvalidCredentialsException;
-import com.rogerio.wallet_api.exception.UserBlockedException;
-import com.rogerio.wallet_api.exception.UserNotFoundException;
+import com.rogerio.wallet_api.exception.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
@@ -101,13 +98,27 @@ public class GlobalExceptionHandler {
   }
 
   @ExceptionHandler(UserNotFoundException.class)
-  public ProblemDetail handleUserNotFoundExceptionException(Exception ex) {
+  public ProblemDetail handleUserNotFoundExceptionException(UserNotFoundException ex) {
     ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(
         HttpStatus.NOT_FOUND,
-        "User not found"
+        ex.getMessage()
     );
 
     problemDetail.setTitle("User Not Found");
+    problemDetail.setType(ErrorTypes.NOT_FOUND);
+    problemDetail.setProperty("timestamp", Instant.now());
+
+    return problemDetail;
+  }
+
+  @ExceptionHandler(WalletNotFoundException.class)
+  public ProblemDetail handleWalletNotFoundException(WalletNotFoundException ex) {
+    ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(
+        HttpStatus.NOT_FOUND,
+        ex.getMessage()
+    );
+
+    problemDetail.setTitle("Wallet Not Found");
     problemDetail.setType(ErrorTypes.NOT_FOUND);
     problemDetail.setProperty("timestamp", Instant.now());
 

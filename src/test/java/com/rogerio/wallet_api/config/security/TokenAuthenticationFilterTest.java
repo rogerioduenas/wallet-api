@@ -1,23 +1,21 @@
 package com.rogerio.wallet_api.config.security;
 
-import com.rogerio.wallet_api.domain.model.Role;
-import com.rogerio.wallet_api.domain.model.Status;
+import com.rogerio.wallet_api.domain.model.enums.Role;
+import com.rogerio.wallet_api.domain.model.enums.Status;
 import com.rogerio.wallet_api.domain.model.User;
 import com.rogerio.wallet_api.domain.repository.UserRepository;
 import com.rogerio.wallet_api.service.AdminService;
-import com.rogerio.wallet_api.service.TokenService;
 import com.rogerio.wallet_api.web.AdminController;
 import com.rogerio.wallet_api.web.BaseWebTest;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
-import org.springframework.context.annotation.Import;
-import org.springframework.data.domain.Page;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 import java.time.Instant;
 import java.util.Optional;
+import java.util.UUID;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
@@ -32,16 +30,13 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 class TokenAuthenticationFilterTest extends BaseWebTest {
 
   private static final String TOKEN = "valid-jwt-token";
-  private static final String EMAIL = "user@email.com";
+  private static final UUID USER_ID = UUID.randomUUID();
 
   @MockitoBean
   private AdminService adminService;
 
-  @MockitoBean
-  private UserRepository userRepository;
-
   private User userWith(Role role, Status status) {
-    User user = new User("Test User", EMAIL, "irrelevant-hash", Instant.now());
+    User user = new User("Test User", "email@email.com", "irrelevant-hash", Instant.now());
     user.setRole(role);
     user.setStatus(status);
     return user;
@@ -49,7 +44,7 @@ class TokenAuthenticationFilterTest extends BaseWebTest {
 
   private void givenValidToken() {
     given(tokenService.isTokenValid(TOKEN)).willReturn(true);
-    given(tokenService.extractUserEmail(TOKEN)).willReturn(EMAIL);
+    given(tokenService.extractUserId(TOKEN)).willReturn(USER_ID);
   }
 
   @Test
@@ -87,7 +82,7 @@ class TokenAuthenticationFilterTest extends BaseWebTest {
   void givenValidTokenAndBlockedUser_whenAccessProtectedEndpoint_thenReturnUnauthorized() throws Exception {
     // Given
     givenValidToken();
-    given(userRepository.findByEmail(EMAIL))
+    given(userRepository.findById(USER_ID))
         .willReturn(Optional.of(userWith(Role.ROLE_ADMIN, Status.BLOCKED)));
 
     // When & Then
@@ -102,7 +97,7 @@ class TokenAuthenticationFilterTest extends BaseWebTest {
   void givenValidTokenAndNonExistentUser_whenAccessProtectedEndpoint_thenReturnUnauthorized() throws Exception {
     // Given
     givenValidToken();
-    given(userRepository.findByEmail(EMAIL)).willReturn(Optional.empty());
+    given(userRepository.findById(USER_ID)).willReturn(Optional.empty());
 
     // When & Then
     mockMvc.perform(get("/api/v1/admins/users")

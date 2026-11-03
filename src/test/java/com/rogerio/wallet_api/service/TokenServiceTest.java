@@ -3,13 +3,13 @@ package com.rogerio.wallet_api.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.BDDMockito.given;
 
-import com.rogerio.wallet_api.domain.model.Status;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
 import java.nio.charset.StandardCharsets;
 import java.time.Clock;
 import java.time.Instant;
+import java.util.UUID;
 import javax.crypto.SecretKey;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -41,11 +41,11 @@ class TokenServiceTest {
   void shouldGenerateValidTokenWithSubjectAndRole() {
     given(clock.instant()).willReturn(fixedInstant);
 
-    String email = "email@email.com";
+    UUID userId = UUID.randomUUID();
     String role = "ROLE_USER";
 
     // When
-    String token = tokenService.generateToken(email, role);
+    String token = tokenService.generateToken(userId, role);
 
     // Then
     assertThat(token).isNotBlank();
@@ -58,7 +58,7 @@ class TokenServiceTest {
         .parseSignedClaims(token)
         .getPayload();
 
-    assertThat(claims.getSubject()).isEqualTo(email);
+    assertThat(claims.getSubject()).isEqualTo(userId.toString());
     assertThat(claims.get("role", String.class)).isEqualTo(role);
     assertThat(claims.getIssuedAt()).isEqualTo(java.util.Date.from(fixedInstant));
     assertThat(claims.getExpiration()).isEqualTo(java.util.Date.from(fixedInstant.plusMillis(TEST_EXPIRATION)));

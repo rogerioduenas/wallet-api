@@ -1,7 +1,7 @@
 package com.rogerio.wallet_api.dto.response;
 
-import com.rogerio.wallet_api.domain.model.Role;
-import com.rogerio.wallet_api.domain.model.Status;
+import com.rogerio.wallet_api.domain.model.enums.Role;
+import com.rogerio.wallet_api.domain.model.enums.Status;
 
 import java.time.Instant;
 import java.util.UUID;

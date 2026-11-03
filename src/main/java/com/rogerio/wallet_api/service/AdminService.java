@@ -1,6 +1,6 @@
 package com.rogerio.wallet_api.service;
 
-import com.rogerio.wallet_api.domain.model.Role;
+import com.rogerio.wallet_api.domain.model.enums.Role;
 import com.rogerio.wallet_api.domain.model.User;
 import com.rogerio.wallet_api.domain.repository.UserRepository;
 import com.rogerio.wallet_api.dto.request.AdminRegistrationRequest;
@@ -18,7 +18,6 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import java.time.Clock;
-import java.util.Optional;
 import java.util.UUID;
 
 @Service

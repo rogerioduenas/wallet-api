@@ -1,6 +1,6 @@
 package com.rogerio.wallet_api.config.security;
 
-import com.rogerio.wallet_api.domain.model.Status;
+import com.rogerio.wallet_api.domain.model.enums.Status;
 import com.rogerio.wallet_api.domain.model.User;
 import com.rogerio.wallet_api.domain.repository.UserRepository;
 import com.rogerio.wallet_api.exception.UserBlockedException;
@@ -10,7 +10,6 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.context.annotation.Bean;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -21,6 +20,7 @@ import java.io.IOException;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 
 public class TokenAuthenticationFilter extends OncePerRequestFilter {
 
@@ -50,8 +50,8 @@ public class TokenAuthenticationFilter extends OncePerRequestFilter {
       String token = header.substring(BEARER_PREFIX.length()).trim();
 
       if (!token.isBlank() && tokenService.isTokenValid(token)) {
-        String userName = tokenService.extractUserEmail(token);
-        Optional<User> optionalUser = userRepository.findByEmail(userName);
+        UUID userId = tokenService.extractUserId(token);
+        Optional<User> optionalUser = userRepository.findById(userId);
 
         if (optionalUser.isPresent()) {
           User user = optionalUser.get();
@@ -66,7 +66,7 @@ public class TokenAuthenticationFilter extends OncePerRequestFilter {
               Collections.singletonList(new SimpleGrantedAuthority(user.getRole().name()));
 
           SecurityContextHolder.getContext().setAuthentication(
-              new UsernamePasswordAuthenticationToken(userName, null, authorities));
+              new UsernamePasswordAuthenticationToken(userId, null, authorities));
         }
       }
     }

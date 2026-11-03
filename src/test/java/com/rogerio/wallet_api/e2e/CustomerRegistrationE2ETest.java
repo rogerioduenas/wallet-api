@@ -20,12 +20,6 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 class CustomerRegistrationE2ETest extends BaseE2ETest {
 
-  @Autowired
-  private UserRepository userRepository;
-
-  @Autowired
-  private WalletRepository walletRepository;
-
   @BeforeEach
   void setUp() {
     walletRepository.deleteAllInBatch();

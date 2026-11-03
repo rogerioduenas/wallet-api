@@ -1,5 +1,7 @@
 package com.rogerio.wallet_api.domain.model;
 
+import com.rogerio.wallet_api.domain.model.enums.Role;
+import com.rogerio.wallet_api.domain.model.enums.Status;
 import jakarta.persistence.*;
 import lombok.*;
 

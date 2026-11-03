@@ -1,7 +1,14 @@
 package com.rogerio.wallet_api.domain.repository;
 
 import com.rogerio.wallet_api.domain.model.Wallet;
+import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 
-public interface WalletRepository extends JpaRepository<Wallet, Long> {
+import java.util.Optional;
+import java.util.UUID;
+
+public interface WalletRepository extends JpaRepository<Wallet, UUID> {
+  @Lock(LockModeType.PESSIMISTIC_WRITE)
+  Optional<Wallet> findByUserId(UUID userId);
 }

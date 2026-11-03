@@ -1,6 +1,6 @@
 package com.rogerio.wallet_api.infra.config;
 
-import com.rogerio.wallet_api.domain.model.Role;
+import com.rogerio.wallet_api.domain.model.enums.Role;
 import com.rogerio.wallet_api.domain.model.User;
 import com.rogerio.wallet_api.domain.repository.UserRepository;
 import jakarta.transaction.Transactional;
@@ -10,7 +10,6 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 
 import java.time.Clock;
-import java.time.Instant;
 
 @Component
 public class MasterAdminSeeder implements CommandLineRunner {
