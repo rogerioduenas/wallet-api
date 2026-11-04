@@ -13,6 +13,7 @@ import java.nio.charset.StandardCharsets;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.Date;
+import java.util.UUID;
 
 @Service
 public class TokenService {
@@ -31,12 +32,12 @@ public class TokenService {
     this.clock = clock;
   }
 
-  public String generateToken(String email, String role) {
+  public String generateToken(UUID id, String role) {
     Instant now = clock.instant();
     Instant expiryDate = now.plusMillis(expirationInMs);
 
     return Jwts.builder()
-        .subject(email)
+        .subject(id.toString())
         .claim("role", role)
         .issuedAt(Date.from(now))
         .expiration(Date.from(expiryDate))
@@ -53,9 +54,9 @@ public class TokenService {
     }
   }
 
-  public String extractUserEmail(String token) {
+  public UUID extractUserId(String token) {
     Claims claims = parseClaims(token);
-    return claims.getSubject();
+    return UUID.fromString(claims.getSubject());
   }
 
   public String extractRole(String token) {

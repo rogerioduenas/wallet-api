@@ -1,13 +1,11 @@
 package com.rogerio.wallet_api.service;
 
-import com.rogerio.wallet_api.domain.model.Role;
-import com.rogerio.wallet_api.domain.model.Status;
+import com.rogerio.wallet_api.domain.model.enums.Role;
 import com.rogerio.wallet_api.domain.model.User;
 import com.rogerio.wallet_api.domain.repository.UserRepository;
 import com.rogerio.wallet_api.dto.request.AuthLoginRequest;
 import com.rogerio.wallet_api.dto.response.AuthTokenResponse;
 import com.rogerio.wallet_api.exception.InvalidCredentialsException;
-import jakarta.validation.constraints.Email;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -61,7 +59,7 @@ class AuthServiceTest {
     given(userRepository.findByEmail(loginRequest.email())).willReturn(Optional.of(mockUser));
     given(passwordEncoder.matches(loginRequest.password(), mockUser.getPassword())).willReturn(true);
 
-    given(tokenService.generateToken(mockUser.getEmail(), "ROLE_USER")).willReturn("mocked.jwt.token");
+    given(tokenService.generateToken(mockUser.getId(), "ROLE_USER")).willReturn("mocked.jwt.token");
     given(tokenService.getExpirationInMs()).willReturn(3600000L);
 
     // When
@@ -76,7 +74,7 @@ class AuthServiceTest {
 
     then(userRepository).should().findByEmail(loginRequest.email());
     then(passwordEncoder).should().matches(loginRequest.password(), mockUser.getPassword());
-    then(tokenService).should().generateToken(mockUser.getEmail(), "ROLE_USER");
+    then(tokenService).should().generateToken(mockUser.getId(), "ROLE_USER");
   }
 
   @Test

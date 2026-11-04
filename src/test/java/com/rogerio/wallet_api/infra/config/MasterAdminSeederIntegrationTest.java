@@ -1,6 +1,6 @@
 package com.rogerio.wallet_api.infra.config;
 
-import com.rogerio.wallet_api.domain.model.Role;
+import com.rogerio.wallet_api.domain.model.enums.Role;
 import com.rogerio.wallet_api.domain.model.User;
 import com.rogerio.wallet_api.domain.repository.UserRepository;
 import org.junit.jupiter.api.DisplayName;

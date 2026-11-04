@@ -4,6 +4,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.rogerio.wallet_api.config.security.DelegatedAccessDeniedHandler;
 import com.rogerio.wallet_api.config.security.DelegatedAuthenticationEntryPoint;
 import com.rogerio.wallet_api.config.security.SecurityConfig;
+import com.rogerio.wallet_api.domain.repository.UserRepository;
+import com.rogerio.wallet_api.domain.repository.WalletRepository;
 import com.rogerio.wallet_api.service.TokenService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.ImportAutoConfiguration;
@@ -29,4 +31,10 @@ public abstract class BaseWebTest {
 
   @MockitoBean
   protected TokenService tokenService;
+
+  @MockitoBean
+  protected UserRepository userRepository;
+
+  @MockitoBean
+  protected WalletRepository walletRepository;
 }

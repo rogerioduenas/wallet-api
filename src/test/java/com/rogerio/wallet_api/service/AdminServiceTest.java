@@ -1,7 +1,7 @@
 package com.rogerio.wallet_api.service;
 
-import com.rogerio.wallet_api.domain.model.Role;
-import com.rogerio.wallet_api.domain.model.Status;
+import com.rogerio.wallet_api.domain.model.enums.Role;
+import com.rogerio.wallet_api.domain.model.enums.Status;
 import com.rogerio.wallet_api.domain.model.User;
 import com.rogerio.wallet_api.domain.repository.UserRepository;
 import com.rogerio.wallet_api.dto.request.AdminRegistrationRequest;

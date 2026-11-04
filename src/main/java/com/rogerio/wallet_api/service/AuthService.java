@@ -1,6 +1,6 @@
 package com.rogerio.wallet_api.service;
 
-import com.rogerio.wallet_api.domain.model.Status;
+import com.rogerio.wallet_api.domain.model.enums.Status;
 import com.rogerio.wallet_api.domain.model.User;
 import com.rogerio.wallet_api.domain.repository.UserRepository;
 import com.rogerio.wallet_api.dto.request.AuthLoginRequest;
@@ -9,8 +9,6 @@ import com.rogerio.wallet_api.exception.InvalidCredentialsException;
 import com.rogerio.wallet_api.exception.UserBlockedException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
-
-import java.util.Optional;
 
 @Service
 public class AuthService {
@@ -39,7 +37,7 @@ public class AuthService {
     }
 
     String role = user.getRole().name();
-    String token = tokenService.generateToken(user.getEmail(), role);
+    String token = tokenService.generateToken(user.getId(), role);
     long expirationInMs = tokenService.getExpirationInMs();
 
     return new AuthTokenResponse(token, "Bearer", role, expirationInMs);

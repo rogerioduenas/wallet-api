@@ -2,8 +2,8 @@ package com.rogerio.wallet_api.e2e;
 
 import com.rogerio.wallet_api.config.security.SecurityConfig;
 import com.rogerio.wallet_api.config.security.TokenAuthenticationFilter;
-import com.rogerio.wallet_api.domain.model.Role;
-import com.rogerio.wallet_api.domain.model.Status;
+import com.rogerio.wallet_api.domain.model.enums.Role;
+import com.rogerio.wallet_api.domain.model.enums.Status;
 import com.rogerio.wallet_api.domain.model.User;
 import com.rogerio.wallet_api.domain.repository.UserRepository;
 import com.rogerio.wallet_api.domain.repository.WalletRepository;
@@ -28,15 +28,6 @@ class AdminRegistrationE2ETest extends BaseE2ETest {
 
   private static final String TOKEN_ADMIN_EMAIL = "token-admin@email.com";
 
-  @Autowired
-  private WalletRepository walletRepository;
-
-  @Autowired
-  private UserRepository userRepository;
-
-  @Autowired
-  private TokenService tokenService;
-
   @BeforeEach
   void setUp() {
     walletRepository.deleteAllInBatch();
@@ -47,7 +38,7 @@ class AdminRegistrationE2ETest extends BaseE2ETest {
     User tokenAdmin = new User("Token Admin", TOKEN_ADMIN_EMAIL, "irrelevant-hash", Instant.now());
     tokenAdmin.setRole(Role.ROLE_ADMIN);
     userRepository.save(tokenAdmin);
-    return tokenService.generateToken(TOKEN_ADMIN_EMAIL, Role.ROLE_ADMIN.name());
+    return tokenService.generateToken(tokenAdmin.getId(), Role.ROLE_ADMIN.name());
   }
 
   @Test
@@ -126,7 +117,7 @@ class AdminRegistrationE2ETest extends BaseE2ETest {
     );
     User customer = new User("Customer", "customer@email.com", "irrelevant-hash", Instant.now());
     userRepository.save(customer);
-    String customerToken = tokenService.generateToken(customer.getEmail(), Role.ROLE_USER.name());
+    String customerToken = tokenService.generateToken(customer.getId(), Role.ROLE_USER.name());
 
     // When & Then
     mockMvc.perform(post("/api/v1/admins/register")

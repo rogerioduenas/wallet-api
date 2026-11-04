@@ -1,6 +1,5 @@
 package com.rogerio.wallet_api.web;
 
-import com.rogerio.wallet_api.domain.repository.UserRepository;
 import com.rogerio.wallet_api.dto.request.AuthLoginRequest;
 import com.rogerio.wallet_api.dto.response.AuthTokenResponse;
 import com.rogerio.wallet_api.exception.InvalidCredentialsException;
@@ -23,9 +22,6 @@ public class AuthControllerTest extends BaseWebTest {
 
   @MockitoBean
   private AuthService authService;
-
-  @MockitoBean
-  private UserRepository userRepository;
 
   private final String VALID_EMAIL = "valid@email.com";
   private final String VALID_PASSWORD = "password";

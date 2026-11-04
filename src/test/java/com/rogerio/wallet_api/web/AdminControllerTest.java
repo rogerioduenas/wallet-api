@@ -1,7 +1,7 @@
 package com.rogerio.wallet_api.web;
 
-import com.rogerio.wallet_api.domain.model.Role;
-import com.rogerio.wallet_api.domain.model.Status;
+import com.rogerio.wallet_api.domain.model.enums.Role;
+import com.rogerio.wallet_api.domain.model.enums.Status;
 import com.rogerio.wallet_api.domain.repository.UserRepository;
 import com.rogerio.wallet_api.dto.request.AdminRegistrationRequest;
 import com.rogerio.wallet_api.dto.request.UpdateStatusRequest;
@@ -27,7 +27,6 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
-import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -38,9 +37,6 @@ public class AdminControllerTest extends BaseWebTest {
 
   @MockitoBean
   private AdminService adminService;
-
-  @MockitoBean
-  private UserRepository userRepository;
 
   private final String VALID_NAME = "Big Boss";
   private final String VALID_EMAIL = "admin@email.com";
@@ -180,7 +176,7 @@ public class AdminControllerTest extends BaseWebTest {
     var request = new UpdateStatusRequest(Status.BLOCKED);
 
     given(adminService.updateUserStatus(eq(userId), any(UpdateStatusRequest.class)))
-        .willThrow(new UserNotFoundException("User not found, please check the id and try again"));
+        .willThrow(new UserNotFoundException("User not found"));
 
     // When & Then
     mockMvc.perform(patch("/api/v1/admins/users/{id}/status", userId)

@@ -3,6 +3,9 @@ package com.rogerio.wallet_api.e2e;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.rogerio.wallet_api.config.security.SecurityConfig;
 import com.rogerio.wallet_api.config.security.TokenAuthenticationFilter;
+import com.rogerio.wallet_api.domain.repository.UserRepository;
+import com.rogerio.wallet_api.domain.repository.WalletRepository;
+import com.rogerio.wallet_api.service.TokenService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.ImportAutoConfiguration;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -10,6 +13,7 @@ import org.springframework.boot.testcontainers.service.connection.ServiceConnect
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.context.annotation.Import;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
@@ -30,4 +34,13 @@ public abstract class BaseE2ETest {
 
   @Autowired
   protected ObjectMapper objectMapper;
+
+  @Autowired
+  protected TokenService tokenService;
+
+  @Autowired
+  protected WalletRepository walletRepository;
+
+  @Autowired
+  protected UserRepository userRepository;
 }
