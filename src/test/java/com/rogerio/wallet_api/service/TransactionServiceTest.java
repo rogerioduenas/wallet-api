@@ -5,13 +5,12 @@ import com.rogerio.wallet_api.domain.model.Wallet;
 import com.rogerio.wallet_api.domain.repository.TransactionRepository;
 import com.rogerio.wallet_api.domain.repository.WalletRepository;
 import com.rogerio.wallet_api.dto.request.DepositRequest;
+import com.rogerio.wallet_api.dto.request.WithdrawRequest;
 import com.rogerio.wallet_api.dto.response.TransactionResponse;
+import com.rogerio.wallet_api.exception.InsufficientBalanceException;
 import com.rogerio.wallet_api.exception.WalletNotFoundException;
 import com.rogerio.wallet_api.mapper.TransactionMapper;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.*;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -53,7 +52,6 @@ public class TransactionServiceTest {
 
   private UUID USER_ID;
   private Wallet WALLET;
-  private DepositRequest VALID_REQUEST;
 
   private TransactionService transactionService;
 
@@ -66,7 +64,6 @@ public class TransactionServiceTest {
         clock
     );
     USER_ID = UUID.randomUUID();
-    VALID_REQUEST = new DepositRequest(BigDecimal.valueOf(100.00));
     WALLET = new Wallet();
     WALLET.setBalance(BigDecimal.valueOf(00.0));
   }
@@ -82,81 +79,179 @@ public class TransactionServiceTest {
     SecurityContextHolder.clearContext();
   }
 
-  @Test
-  @DisplayName("Should successfully deposit amount and update wallet balance when valid request and authenticated user are provided")
-  void givenValidRequestAndAuthenticatedUser_whenDeposit_thenSaveTransactionAndUpdateWallet() {
-    // Given
-    mockAuthenticatedUser(USER_ID);
+  @Nested
+  @DisplayName("Deposit")
+  class DepositTests {
 
-    BigDecimal initialBalance = WALLET.getBalance();
-    BigDecimal depositAmount = VALID_REQUEST.amount();
-    BigDecimal expectedBalance = initialBalance.add(depositAmount);
+    @Test
+    @DisplayName("Should successfully deposit amount and update wallet balance when valid request and authenticated user are provided")
+    void givenValidRequestAndAuthenticatedUser_whenDeposit_thenSaveTransactionAndUpdateWallet() {
+      // Given
+      mockAuthenticatedUser(USER_ID);
+      DepositRequest request = new DepositRequest(BigDecimal.valueOf(100.00));
 
-    TransactionResponse expectedResponse = new TransactionResponse(UUID.randomUUID(), fixedInstant);
+      BigDecimal initialBalance = WALLET.getBalance();
+      BigDecimal depositAmount = request.amount();
+      BigDecimal expectedBalance = initialBalance.add(depositAmount);
 
-    given(walletRepository.findByUserId(USER_ID)).willReturn(Optional.of(WALLET));
+      TransactionResponse expectedResponse = new TransactionResponse(UUID.randomUUID(), fixedInstant);
 
-    given(transactionRepository.save(any(Transaction.class)))
-        .willAnswer(invocation -> invocation.getArgument(0));
-    given(transactionMapper.toDto(any(Transaction.class))).willReturn(expectedResponse);
+      given(walletRepository.findByUserId(USER_ID)).willReturn(Optional.of(WALLET));
 
-    // When
-    TransactionResponse response = transactionService.deposit(VALID_REQUEST);
+      given(transactionRepository.save(any(Transaction.class)))
+          .willAnswer(invocation -> invocation.getArgument(0));
+      given(transactionMapper.toDto(any(Transaction.class))).willReturn(expectedResponse);
 
-    // Then
-    assertThat(response).isNotNull();
-    assertThat(response).isEqualTo(expectedResponse);
-    assertThat(WALLET.getBalance()).isEqualByComparingTo(expectedBalance);
+      // When
+      TransactionResponse response = transactionService.deposit(request);
+
+      // Then
+      assertThat(response).isNotNull();
+      assertThat(response).isEqualTo(expectedResponse);
+      assertThat(WALLET.getBalance()).isEqualByComparingTo(expectedBalance);
+    }
+
+    @Test
+    @DisplayName("Should throw AuthenticationCredentialsNotFoundException when user is not authenticated in security context")
+    void givenUnauthenticatedUser_whenDeposit_thenThrowAuthenticationCredentialsNotFoundException() {
+      // Given
+      DepositRequest request = new DepositRequest(BigDecimal.valueOf(100.00));
+
+      // When & Then
+      assertThatThrownBy(() -> transactionService.deposit(request))
+          .isInstanceOf(AuthenticationCredentialsNotFoundException.class)
+          .hasMessage("User is not authenticated");
+
+      then(walletRepository).shouldHaveNoInteractions();
+      then(transactionRepository).shouldHaveNoInteractions();
+      then(transactionMapper).shouldHaveNoInteractions();
+    }
+
+    @Test
+    @DisplayName("Should throw WalletNotFoundException when wallet does not exist for the authenticated user ID")
+    void givenNonExistentWallet_whenDeposit_thenThrowWalletNotFoundException() {
+      // Given
+      mockAuthenticatedUser(USER_ID);
+      DepositRequest request = new DepositRequest(BigDecimal.valueOf(100.00));
+
+      given(walletRepository.findByUserId(USER_ID)).willReturn(Optional.empty());
+
+      // When & Then
+      assertThatThrownBy(() -> transactionService.deposit(request))
+          .isInstanceOf(WalletNotFoundException.class)
+          .hasMessage("Wallet not found");
+
+      then(walletRepository).shouldHaveNoMoreInteractions();
+      then(transactionRepository).shouldHaveNoInteractions();
+      then(transactionMapper).shouldHaveNoInteractions();
+    }
+
+    @Test
+    @DisplayName("Should correctly accumulate amount to existing wallet balance when deposit is performed")
+    void givenExistingBalance_whenDeposit_thenSumAmountToWalletBalance() {
+      // Given
+      mockAuthenticatedUser(USER_ID);
+      DepositRequest request = new DepositRequest(BigDecimal.valueOf(100.00));
+      WALLET.setBalance(BigDecimal.valueOf(50.00));
+
+      BigDecimal expectedBalance = WALLET.getBalance().add(request.amount());
+
+      given(walletRepository.findByUserId(USER_ID)).willReturn(Optional.of(WALLET));
+      given(transactionRepository.save(any(Transaction.class))).willAnswer(inv -> inv.getArgument(0));
+      given(transactionMapper.toDto(any(Transaction.class))).willReturn(mock(TransactionResponse.class));
+
+      // When
+      transactionService.deposit(request);
+
+      // Then
+      assertThat(WALLET.getBalance()).isEqualByComparingTo(expectedBalance);
+    }
   }
 
-  @Test
-  @DisplayName("Should throw AuthenticationCredentialsNotFoundException when user is not authenticated in security context")
-  void givenUnauthenticatedUser_whenDeposit_thenThrowAuthenticationCredentialsNotFoundException() {
-    // When & Then
-    assertThatThrownBy(() -> transactionService.deposit(VALID_REQUEST))
-        .isInstanceOf(AuthenticationCredentialsNotFoundException.class)
-        .hasMessage("User is not authenticated");
+  @Nested
+  @DisplayName("Withdraw")
+  class WithdrawTests {
 
-    then(walletRepository).shouldHaveNoInteractions();
-    then(transactionRepository).shouldHaveNoInteractions();
-    then(transactionMapper).shouldHaveNoInteractions();
-  }
+    @Test
+    @DisplayName("Should successfully withdraw amount and update wallet balance when valid request and sufficient balance are provided")
+    void givenValidRequestAndSufficientBalance_whenWithdraw_thenSaveTransactionAndSubtractWalletBalance() {
+      // Given
+      mockAuthenticatedUser(USER_ID);
+      WALLET.setBalance(BigDecimal.valueOf(200.00));
 
-  @Test
-  @DisplayName("Should throw WalletNotFoundException when wallet does not exist for the authenticated user ID")
-  void givenNonExistentWallet_whenDeposit_thenThrowWalletNotFoundException() {
-    // Given
-    mockAuthenticatedUser(USER_ID);
-    given(walletRepository.findByUserId(USER_ID)).willReturn(Optional.empty());
+      WithdrawRequest request = new WithdrawRequest(BigDecimal.valueOf(50.00));
+      BigDecimal expectedBalance = BigDecimal.valueOf(150.00);
 
-    // When & Then
-    assertThatThrownBy(() -> transactionService.deposit(VALID_REQUEST))
-    .isInstanceOf(WalletNotFoundException.class)
-        .hasMessage("Wallet not found");
+      TransactionResponse expectedResponse = new TransactionResponse(UUID.randomUUID(), fixedInstant);
 
-    then(walletRepository).shouldHaveNoMoreInteractions();
-    then(transactionRepository).shouldHaveNoInteractions();
-    then(transactionMapper).shouldHaveNoInteractions();
-  }
+      given(walletRepository.findByUserId(USER_ID)).willReturn(Optional.of(WALLET));
+      given(transactionRepository.save(any(Transaction.class)))
+          .willAnswer(invocation -> invocation.getArgument(0));
+      given(transactionMapper.toDto(any(Transaction.class))).willReturn(expectedResponse);
 
-  @Test
-  @DisplayName("Should correctly accumulate amount to existing wallet balance when deposit is performed")
-  void givenExistingBalance_whenDeposit_thenSumAmountToWalletBalance() {
-    // Given
-    mockAuthenticatedUser(USER_ID);
-    WALLET.setBalance(BigDecimal.valueOf(50.00));
+      // When
+      TransactionResponse response = transactionService.withdraw(request);
 
-    BigDecimal expectedBalance = WALLET.getBalance().add(VALID_REQUEST.amount());
+      // Then
+      assertThat(response).isNotNull();
+      assertThat(response).isEqualTo(expectedResponse);
+      assertThat(WALLET.getBalance()).isEqualByComparingTo(expectedBalance);
+    }
 
-    given(walletRepository.findByUserId(USER_ID)).willReturn(Optional.of(WALLET));
-    given(transactionRepository.save(any(Transaction.class))).willAnswer(inv -> inv.getArgument(0));
-    given(transactionMapper.toDto(any(Transaction.class))).willReturn(mock(TransactionResponse.class));
+    @Test
+    @DisplayName("Should throw InsufficientBalanceException when wallet balance is less than requested withdraw amount")
+    void givenInsufficientBalance_whenWithdraw_thenThrowInsufficientBalanceException() {
+      // Given
+      mockAuthenticatedUser(USER_ID);
+      WALLET.setBalance(BigDecimal.valueOf(30.00));
 
-    // When
-    transactionService.deposit(VALID_REQUEST);
+      WithdrawRequest request = new WithdrawRequest(BigDecimal.valueOf(50.00));
 
-    // Then
-    assertThat(WALLET.getBalance()).isEqualByComparingTo(expectedBalance);
+      given(walletRepository.findByUserId(USER_ID)).willReturn(Optional.of(WALLET));
+
+      // When & Then
+      assertThatThrownBy(() -> transactionService.withdraw(request))
+          .isInstanceOf(InsufficientBalanceException.class)
+          .hasMessage("Insufficient balance");
+
+      then(transactionRepository).shouldHaveNoInteractions();
+      then(transactionMapper).shouldHaveNoInteractions();
+    }
+
+    @Test
+    @DisplayName("Should throw AuthenticationCredentialsNotFoundException when user is not authenticated during withdraw")
+    void givenUnauthenticatedUser_whenWithdraw_thenThrowAuthenticationCredentialsNotFoundException() {
+      // Given
+      WithdrawRequest request = new WithdrawRequest(BigDecimal.valueOf(50.00));
+
+      // When & Then
+      assertThatThrownBy(() -> transactionService.withdraw(request))
+          .isInstanceOf(AuthenticationCredentialsNotFoundException.class)
+          .hasMessage("User is not authenticated");
+
+      then(walletRepository).shouldHaveNoInteractions();
+      then(transactionRepository).shouldHaveNoInteractions();
+      then(transactionMapper).shouldHaveNoInteractions();
+    }
+
+    @Test
+    @DisplayName("Should throw WalletNotFoundException when wallet does not exist during withdraw")
+    void givenNonExistentWallet_whenWithdraw_thenThrowWalletNotFoundException() {
+      // Given
+      mockAuthenticatedUser(USER_ID);
+      WithdrawRequest request = new WithdrawRequest(BigDecimal.valueOf(50.00));
+
+      given(walletRepository.findByUserId(USER_ID)).willReturn(Optional.empty());
+
+      // When & Then
+      assertThatThrownBy(() -> transactionService.withdraw(request))
+          .isInstanceOf(WalletNotFoundException.class)
+          .hasMessage("Wallet not found");
+
+      then(walletRepository).shouldHaveNoMoreInteractions();
+      then(transactionRepository).shouldHaveNoInteractions();
+      then(transactionMapper).shouldHaveNoInteractions();
+    }
   }
 }
 

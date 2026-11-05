@@ -1,11 +1,13 @@
 package com.rogerio.wallet_api.web;
 
 import com.rogerio.wallet_api.dto.request.DepositRequest;
+import com.rogerio.wallet_api.dto.request.WithdrawRequest;
 import com.rogerio.wallet_api.dto.response.TransactionResponse;
+import com.rogerio.wallet_api.exception.InsufficientBalanceException;
 import com.rogerio.wallet_api.exception.WalletNotFoundException;
 import com.rogerio.wallet_api.service.TransactionService;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
@@ -35,74 +37,154 @@ public class TransactionControllerTest extends BaseWebTest {
   private final Instant fixedInstant = Instant.parse("2026-10-15T10:00:00Z");
   private final Clock clock = Clock.fixed(fixedInstant, ZoneId.of("UTC"));
 
-  private DepositRequest VALID_REQUEST;
+  @Nested
+  @DisplayName("Deposit")
+  class Deposit {
 
-  @BeforeEach
-  void setUp() {
-    VALID_REQUEST = new DepositRequest(BigDecimal.valueOf(100.00));
+    @Test
+    @DisplayName("Should return 201 Created with transaction response and location header when deposit request is valid")
+    void givenValidDepositRequest_whenDeposit_thenReturnsCreatedWithTransactionResponse() throws Exception {
+      // Given
+      DepositRequest request = new DepositRequest(BigDecimal.valueOf(100.00));
+      TransactionResponse response = new TransactionResponse(UUID.randomUUID(), clock.instant());
+
+      given(transactionService.deposit(any(DepositRequest.class))).willReturn(response);
+
+      // When & Then
+      mockMvc.perform(post("/api/v1/wallets/deposit")
+              .contentType(MediaType.APPLICATION_JSON)
+              .content(objectMapper.writeValueAsString(request))
+              .with(user("email@email.com").roles("USER")))
+          .andExpect(status().isCreated())
+          .andExpect(header().string("Location", containsString("/api/v1/transactions/")))
+          .andExpect(jsonPath("$.id").value(response.id().toString()));
+    }
+
+    @ParameterizedTest
+    @DisplayName("Should return 400 Bad Request when deposit request has null, zero or negative amount")
+    @CsvSource({
+        "null",
+        "0.00",
+        "-0.01",
+        "-10.00"
+    })
+    void givenInvalidAmount_whenDeposit_thenReturnsBadRequest(String amountStr) throws Exception {
+      // Given
+      BigDecimal amount = "null".equals(amountStr) ? null : new BigDecimal(amountStr);
+      DepositRequest invalidRequest = new DepositRequest(amount);
+
+      // When & Then
+      mockMvc.perform(post("/api/v1/wallets/deposit")
+              .contentType(MediaType.APPLICATION_JSON)
+              .content(objectMapper.writeValueAsString(invalidRequest))
+              .with(user("email@email.com").roles("USER")))
+          .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    @DisplayName("Should return 401 Unauthorized when user is not authenticated")
+    void givenUnauthenticatedUser_whenDeposit_thenReturnsUnauthorized() throws Exception {
+      // Given
+      DepositRequest request = new DepositRequest(BigDecimal.valueOf(100.00));
+
+      // When & Then
+      mockMvc.perform(post("/api/v1/wallets/deposit")
+              .contentType(MediaType.APPLICATION_JSON)
+              .content(objectMapper.writeValueAsString(request)))
+          .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    @DisplayName("Should return 404 Not Found when wallet does not exist for the authenticated user")
+    void givenNonExistentWallet_whenDeposit_thenReturnsNotFound() throws Exception {
+      // Given
+      DepositRequest request = new DepositRequest(BigDecimal.valueOf(100.00));
+
+      given(transactionService.deposit(any(DepositRequest.class)))
+          .willThrow(new WalletNotFoundException("Wallet not found"));
+
+      // When & Then
+      mockMvc.perform(post("/api/v1/wallets/deposit")
+              .contentType(MediaType.APPLICATION_JSON)
+              .content(objectMapper.writeValueAsString(request))
+              .with(user("email@email.com").roles("USER")))
+          .andExpect(status().isNotFound());
+    }
   }
 
-  @Test
-  @DisplayName("Should return 201 Created with transaction response and location header when deposit request is valid")
-  void givenValidDepositRequest_whenDeposit_thenReturnsCreatedWithTransactionResponse() throws Exception {
-    // Given
-    TransactionResponse response = new TransactionResponse(UUID.randomUUID(), clock.instant());
+  @Nested
+  @DisplayName("Withdraw")
+  class Withdraw {
 
-    given(transactionService.deposit(any(DepositRequest.class))).willReturn(response);
+    @Test
+    @DisplayName("Should return 201 Created with transaction response and location header when withdraw request is valid")
+    void givenValidWithdrawRequest_whenWithdraw_thenReturnsCreatedWithTransactionResponse() throws Exception {
+      // Given
+      WithdrawRequest request = new WithdrawRequest(BigDecimal.valueOf(100.00));
+      TransactionResponse response = new TransactionResponse(UUID.randomUUID(), clock.instant());
 
-    // When & Then
-    mockMvc.perform(post("/api/v1/wallets/deposit")
-            .contentType(MediaType.APPLICATION_JSON)
-            .content(objectMapper.writeValueAsString(VALID_REQUEST))
-            .with(user("email@email.com").roles("USER")))
-        .andExpect(status().isCreated())
-        .andExpect(header().string("Location", containsString("/api/v1/transactions/")))
-        .andExpect(jsonPath("$.id").value(response.id().toString()));
-  }
+      given(transactionService.withdraw(any(WithdrawRequest.class))).willReturn(response);
 
-  @ParameterizedTest
-  @DisplayName("Should return 400 Bad Request when deposit request has null, zero or negative amount")
-  @CsvSource({
-      "null",
-      "0.00",
-      "-0.01",
-      "-10.00"
-  })
-  void givenInvalidAmount_whenDeposit_thenReturnsBadRequest(String amountStr) throws Exception {
-    // Given
-    BigDecimal amount = "null".equals(amountStr) ? null : new BigDecimal(amountStr);
-    DepositRequest invalidRequest = new DepositRequest(amount);
+      // When & Then
+      mockMvc.perform(post("/api/v1/wallets/withdraw")
+              .contentType(MediaType.APPLICATION_JSON)
+              .content(objectMapper.writeValueAsString(request))
+              .with(user("email@email.com").roles("USER")))
+          .andExpect(status().isCreated())
+          .andExpect(header().string("Location", containsString("/api/v1/transactions/")))
+          .andExpect(jsonPath("$.id").value(response.id().toString()));
+    }
 
-    // When & Then
-    mockMvc.perform(post("/api/v1/wallets/deposit")
-            .contentType(MediaType.APPLICATION_JSON)
-            .content(objectMapper.writeValueAsString(invalidRequest))
-            .with(user("email@email.com").roles("USER")))
-        .andExpect(status().isBadRequest());
-  }
+    @ParameterizedTest
+    @DisplayName("Should return 400 Bad Request when withdraw request has null, zero or negative amount")
+    @CsvSource({
+        "null",
+        "0.00",
+        "-0.01",
+        "-10.00"
+    })
+    void givenInvalidAmount_whenWithdraw_thenReturnsBadRequest(String amountStr) throws Exception {
+      // Given
+      BigDecimal amount = "null".equals(amountStr) ? null : new BigDecimal(amountStr);
+      WithdrawRequest invalidRequest = new WithdrawRequest(amount);
 
-  @Test
-  @DisplayName("Should return 401 Unauthorized when user is not authenticated")
-  void givenUnauthenticatedUser_whenDeposit_thenReturnsUnauthorized() throws Exception {
-    // When & Then
-    mockMvc.perform(post("/api/v1/wallets/deposit")
-            .contentType(MediaType.APPLICATION_JSON)
-            .content(objectMapper.writeValueAsString(VALID_REQUEST)))
-        .andExpect(status().isUnauthorized());
-  }
+      // When & Then
+      mockMvc.perform(post("/api/v1/wallets/withdraw")
+              .contentType(MediaType.APPLICATION_JSON)
+              .content(objectMapper.writeValueAsString(invalidRequest))
+              .with(user("email@email.com").roles("USER")))
+          .andExpect(status().isBadRequest());
+    }
 
-  @Test
-  @DisplayName("Should return 404 Not Found when wallet does not exist for the authenticated user")
-  void givenNonExistentWallet_whenDeposit_thenReturnsNotFound() throws Exception {
-    // Given
-    given(transactionService.deposit(any(DepositRequest.class)))
-        .willThrow(new WalletNotFoundException("Wallet not found"));
+    @Test
+    @DisplayName("Should return 401 Unauthorized when user is not authenticated during withdraw")
+    void givenUnauthenticatedUser_whenWithdraw_thenReturnsUnauthorized() throws Exception {
+      // Given
+      WithdrawRequest request = new WithdrawRequest(BigDecimal.valueOf(100.00));
 
-    // When & Then
-    mockMvc.perform(post("/api/v1/wallets/deposit")
-            .contentType(MediaType.APPLICATION_JSON)
-            .content(objectMapper.writeValueAsString(VALID_REQUEST))
-            .with(user("email@email.com").roles("USER")))
-        .andExpect(status().isNotFound());
+      // When & Then
+      mockMvc.perform(post("/api/v1/wallets/withdraw")
+              .contentType(MediaType.APPLICATION_JSON)
+              .content(objectMapper.writeValueAsString(request)))
+          .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    @DisplayName("Should return 422 Unprocessable Content when wallet has insufficient balance")
+    void givenInsufficientBalanceOrMissingWallet_whenWithdraw_thenReturnsErrorStatus() throws Exception {
+      // Given
+      WithdrawRequest request = new WithdrawRequest(BigDecimal.valueOf(100.00));
+
+      given(transactionService.withdraw(any(WithdrawRequest.class))).willThrow(
+          new InsufficientBalanceException("Insufficient Balance")
+      );
+      // When
+      mockMvc.perform(post("/api/v1/wallets/withdraw")
+              .contentType(MediaType.APPLICATION_JSON)
+              .content(objectMapper.writeValueAsString(request))
+              .with(user("email@email.com").roles("USER")))
+          .andExpect(status().isUnprocessableContent());
+          // Then
+    }
   }
 }

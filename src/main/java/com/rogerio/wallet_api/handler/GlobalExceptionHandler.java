@@ -13,6 +13,7 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import tools.jackson.databind.exc.InvalidFormatException;
 
+import java.time.Clock;
 import java.time.Instant;
 import java.util.List;
 
@@ -120,6 +121,19 @@ public class GlobalExceptionHandler {
 
     problemDetail.setTitle("Wallet Not Found");
     problemDetail.setType(ErrorTypes.NOT_FOUND);
+    problemDetail.setProperty("timestamp", Instant.now());
+
+    return problemDetail;
+  }
+
+  @ExceptionHandler(InsufficientBalanceException.class)
+  public ProblemDetail handleInsufficientBalanceException(InsufficientBalanceException ex) {
+    ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(
+        HttpStatus.UNPROCESSABLE_CONTENT,
+        ex.getMessage()
+    );
+    problemDetail.setTitle("Insufficient Balance");
+    problemDetail.setType(ErrorTypes.INSUFFICIENT_BALANCE);
     problemDetail.setProperty("timestamp", Instant.now());
 
     return problemDetail;

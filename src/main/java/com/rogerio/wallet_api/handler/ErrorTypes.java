@@ -14,6 +14,7 @@ public final class ErrorTypes {
   public static final URI FORBIDDEN = URI.create(BASE_URL + "forbidden");
   public static final URI NOT_FOUND = URI.create(BASE_URL + "resource-not-found");
   public static final URI INVALID_REQUEST_BODY = URI.create(BASE_URL + "invalid-request-body");
+  public static final URI INSUFFICIENT_BALANCE = URI.create(BASE_URL + "insufficient-balance");
 
   private ErrorTypes() {}
 }
