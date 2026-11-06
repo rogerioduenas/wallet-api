@@ -6,7 +6,9 @@ import com.rogerio.wallet_api.domain.model.enums.TransactionType;
 import com.rogerio.wallet_api.domain.repository.TransactionRepository;
 import com.rogerio.wallet_api.domain.repository.WalletRepository;
 import com.rogerio.wallet_api.dto.request.DepositRequest;
+import com.rogerio.wallet_api.dto.request.WithdrawRequest;
 import com.rogerio.wallet_api.dto.response.TransactionResponse;
+import com.rogerio.wallet_api.exception.InsufficientBalanceException;
 import com.rogerio.wallet_api.exception.WalletNotFoundException;
 import com.rogerio.wallet_api.mapper.TransactionMapper;
 import jakarta.transaction.Transactional;
@@ -43,6 +45,21 @@ public class TransactionService {
     wallet.setBalance(wallet.getBalance().add(amount));
 
     return saveTransaction(wallet, amount, TransactionType.DEPOSIT);
+  }
+
+  @Transactional
+  public TransactionResponse withdraw(WithdrawRequest request) {
+    UUID userId = getCurrentUserIdFromSecurityContext();
+    BigDecimal amount = request.amount();
+    Wallet wallet = getWalletByUserId(userId);
+
+    if (wallet.getBalance().compareTo(amount) < 0) {
+      throw new InsufficientBalanceException("Insufficient balance");
+    }
+
+    wallet.setBalance(wallet.getBalance().subtract(amount));
+
+    return saveTransaction(wallet, amount, TransactionType.WITHDRAW);
   }
 
   @Transactional
