@@ -15,6 +15,7 @@ public final class ErrorTypes {
   public static final URI NOT_FOUND = URI.create(BASE_URL + "resource-not-found");
   public static final URI INVALID_REQUEST_BODY = URI.create(BASE_URL + "invalid-request-body");
   public static final URI INSUFFICIENT_BALANCE = URI.create(BASE_URL + "insufficient-balance");
+  public static final URI SELF_TRANSFER_NOT_ALLOWED = URI.create(BASE_URL + "self-transfer-not-allowed");
 
   private ErrorTypes() {}
 }

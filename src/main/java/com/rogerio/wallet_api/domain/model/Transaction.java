@@ -31,13 +31,23 @@ public class Transaction {
   @Column(name = "type",  nullable = false, updatable = false)
   private TransactionType type;
 
+  @ManyToOne(fetch = FetchType.LAZY)
+  @JoinColumn(name = "recipient_wallet_id", referencedColumnName = "id")
+  private Wallet recipientWallet;
+
   @Column(name = "created_at", nullable = false, updatable = false)
   private Instant createdAt;
 
-  public Transaction(Wallet wallet, BigDecimal amount, TransactionType type, Instant createdAt) {
+  public Transaction(
+      Wallet wallet,
+      BigDecimal amount,
+      TransactionType type,
+      Wallet recipientWallet,
+      Instant createdAt) {
     this.wallet = wallet;
     this.amount = amount;
     this.type = type;
+    this.recipientWallet = recipientWallet;
     this.createdAt = createdAt;
   }
 }

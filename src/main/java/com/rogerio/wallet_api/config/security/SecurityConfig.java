@@ -47,6 +47,7 @@ public class SecurityConfig {
             .requestMatchers(HttpMethod.PATCH, "/api/v1/admins/users/{id}/status").hasRole("ADMIN")
             .requestMatchers(HttpMethod.POST, "/api/v1/wallets/deposit").hasRole("USER")
             .requestMatchers(HttpMethod.POST, "/api/v1/wallets/withdraw").hasRole("USER")
+            .requestMatchers(HttpMethod.POST, "/api/v1/wallets/transfer").hasRole("USER")
             .anyRequest().authenticated()
         )
         .exceptionHandling(exception -> exception

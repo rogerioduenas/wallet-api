@@ -1,10 +1,12 @@
 package com.rogerio.wallet_api.web;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.rogerio.wallet_api.dto.request.DepositRequest;
+import com.rogerio.wallet_api.dto.request.TransferRequest;
 import com.rogerio.wallet_api.dto.request.WithdrawRequest;
 import com.rogerio.wallet_api.dto.response.TransactionResponse;
-import com.rogerio.wallet_api.exception.InsufficientBalanceException;
-import com.rogerio.wallet_api.exception.WalletNotFoundException;
+import com.rogerio.wallet_api.exception.*;
+import com.rogerio.wallet_api.handler.ErrorTypes;
 import com.rogerio.wallet_api.service.TransactionService;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -24,6 +26,7 @@ import java.util.UUID;
 import static org.hamcrest.Matchers.containsString;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.BDDMockito.then;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
@@ -178,13 +181,157 @@ public class TransactionControllerTest extends BaseWebTest {
       given(transactionService.withdraw(any(WithdrawRequest.class))).willThrow(
           new InsufficientBalanceException("Insufficient Balance")
       );
-      // When
+      // When & Then
       mockMvc.perform(post("/api/v1/wallets/withdraw")
               .contentType(MediaType.APPLICATION_JSON)
               .content(objectMapper.writeValueAsString(request))
               .with(user("email@email.com").roles("USER")))
           .andExpect(status().isUnprocessableContent());
-          // Then
+    }
+  }
+
+  @Nested
+  @DisplayName("Transfer")
+  class Transfer {
+
+    @Test
+    @DisplayName("Should return 201 Created with transaction response and location header when transfer is successful")
+    void givenValidTransferRequest_whenTransfer_thenReturnsCreatedWithResponse() throws Exception {
+      // Given
+      TransferRequest request = new TransferRequest(UUID.randomUUID(), BigDecimal.valueOf(100.00));
+      TransactionResponse response = new TransactionResponse(UUID.randomUUID(), clock.instant());
+
+      given(transactionService.transfer(any(TransferRequest.class))).willReturn(response);
+
+      // When & Then
+      mockMvc.perform(post("/api/v1/wallets/transfer")
+              .contentType(MediaType.APPLICATION_JSON)
+              .content(objectMapper.writeValueAsString(request))
+              .with(user("email@email.com").roles("USER")))
+          .andExpect(status().isCreated())
+          .andExpect(header().string("Location", containsString("/api/v1/transactions/")))
+          .andExpect(jsonPath("$.id").value(response.id().toString()))
+          .andExpect(jsonPath("$.createdAt").value(response.createdAt().toString()));
+    }
+
+    @ParameterizedTest
+    @DisplayName("Should return 400 Bad Request when amount is negative or zero")
+    @CsvSource({
+        "null",
+        "0.00",
+        "-0.01",
+        "-10.00"
+    })
+    void givenInvalidAmount_whenTransfer_thenReturnsBadRequest(String amountStr) throws Exception {
+      // Given
+      BigDecimal amount = "null".equals(amountStr) ? null : new BigDecimal(amountStr);
+      TransferRequest request = new TransferRequest(UUID.randomUUID(), amount);
+
+      // When & Then
+      mockMvc.perform(post("/api/v1/wallets/transfer")
+              .contentType(MediaType.APPLICATION_JSON)
+              .content(objectMapper.writeValueAsString(request))
+              .with(user("email.com").roles("USER")))
+          .andExpect(status().isBadRequest())
+          .andExpect(jsonPath("$.type")
+              .value(ErrorTypes.INVALID_PARAMS.toString()));
+
+      then(transactionService).shouldHaveNoInteractions();
+    }
+
+    @ParameterizedTest
+    @DisplayName("Should return 400 Bad Request when recipientId is blank or invalid format")
+    @CsvSource({
+        "''",
+        "invalid-uuid"
+    })
+    void givenInvalidRecipient_whenTransfer_thenReturnsBadRequest(String recipientIdString) throws Exception {
+      String requestJson = String.format("{\"recipientId\": \"%s\", \"amount\": 50.00}", recipientIdString);
+
+      // When & Then
+      mockMvc.perform(post("/api/v1/wallets/transfer")
+              .contentType(MediaType.APPLICATION_JSON)
+              .content(requestJson)
+              .with(user("email.com").roles("USER")))
+          .andExpect(status().isBadRequest());
+
+      then(transactionService).shouldHaveNoInteractions();
+    }
+
+    @Test
+    @DisplayName("Should return appropriate error response when service throws SelfTransferException")
+    void givenSameSenderAndRecipient_whenTransfer_thenReturnsErrorResponse() throws Exception {
+      // Given
+      TransferRequest request = new TransferRequest(UUID.randomUUID(), BigDecimal.valueOf(100.00));
+
+      given(transactionService.transfer(any(TransferRequest.class)))
+          .willThrow(SelfTransferException.class);
+
+      // When & Then
+      mockMvc.perform(post("/api/v1/wallets/transfer")
+              .contentType(MediaType.APPLICATION_JSON)
+              .content(objectMapper.writeValueAsString(request))
+              .with(user("email.com").roles("USER")))
+          .andExpect(status().isUnprocessableContent())
+          .andExpect(jsonPath("$.type")
+              .value(ErrorTypes.SELF_TRANSFER_NOT_ALLOWED.toString()));
+    }
+
+    @Test
+    @DisplayName("Should return appropriate error response when sender has insufficient balance")
+    void givenInsufficientBalance_whenTransfer_thenReturnsErrorResponse() throws Exception {
+      // Given
+      TransferRequest request = new TransferRequest(UUID.randomUUID(), BigDecimal.valueOf(100.00));
+
+      given(transactionService.transfer(any(TransferRequest.class)))
+          .willThrow(InsufficientBalanceException.class);
+
+      // When & Then
+      mockMvc.perform(post("/api/v1/wallets/transfer")
+              .contentType(MediaType.APPLICATION_JSON)
+              .content(objectMapper.writeValueAsString(request))
+              .with(user("email.com").roles("USER")))
+          .andExpect(status().isUnprocessableContent())
+          .andExpect(jsonPath("$.type")
+              .value(ErrorTypes.INSUFFICIENT_BALANCE.toString()));
+    }
+
+    @Test
+    @DisplayName("Should return appropriate error response when recipient is not found")
+    void givenNonRecipient_whenTransfer_thenReturnsErrorResponse() throws Exception {
+      // Given
+      TransferRequest request = new TransferRequest(UUID.randomUUID(), BigDecimal.valueOf(100.00));
+
+      given(transactionService.transfer(any(TransferRequest.class)))
+          .willThrow(UserNotFoundException.class);
+
+      // When & Then
+      mockMvc.perform(post("/api/v1/wallets/transfer")
+              .contentType(MediaType.APPLICATION_JSON)
+              .content(objectMapper.writeValueAsString(request))
+              .with(user("email.com").roles("USER")))
+          .andExpect(status().isNotFound())
+          .andExpect(jsonPath("$.type")
+              .value(ErrorTypes.NOT_FOUND.toString()));
+    }
+
+    @Test
+    @DisplayName("Should return appropriate error response when recipient is inactive")
+    void givenInactiveRecipient_whenTransfer_thenReturnsErrorResponse() throws Exception {
+      // Given
+      TransferRequest  request = new TransferRequest(UUID.randomUUID(), BigDecimal.valueOf(100.00));
+
+      given(transactionService.transfer(any(TransferRequest.class))).willThrow(UserBlockedException.class);
+
+      // When & Then
+      mockMvc.perform(post("/api/v1/wallets/transfer")
+      .contentType(MediaType.APPLICATION_JSON)
+      .content(objectMapper.writeValueAsString(request))
+          .with(user("email.com").roles("USER")))
+          .andExpect(status().isForbidden())
+          .andExpect(jsonPath("$.type")
+              .value(ErrorTypes.FORBIDDEN.toString()));
+
     }
   }
 }
