@@ -1,6 +1,7 @@
 package com.rogerio.wallet_api.web;
 
 import com.rogerio.wallet_api.dto.request.DepositRequest;
+import com.rogerio.wallet_api.dto.request.TransferRequest;
 import com.rogerio.wallet_api.dto.request.WithdrawRequest;
 import com.rogerio.wallet_api.dto.response.TransactionResponse;
 import com.rogerio.wallet_api.service.TransactionService;
@@ -40,6 +41,17 @@ public class TransactionController {
 
     URI location = UriHelper.createResourceUri(
         "/api/v1/transactions/{id}", response.id());
+
+    return ResponseEntity.created(location).body(response);
+  }
+
+  @PostMapping("/transfer")
+  public ResponseEntity<TransactionResponse> transfer(@Valid @RequestBody TransferRequest request) {
+    TransactionResponse response = transactionService.transfer(request);
+
+    URI location = UriHelper.createResourceUri(
+        "/api/v1/transactions/{id}", response.id()
+    );
 
     return ResponseEntity.created(location).body(response);
   }

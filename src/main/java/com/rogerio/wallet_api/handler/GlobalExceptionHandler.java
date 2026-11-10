@@ -153,6 +153,19 @@ public class GlobalExceptionHandler {
     return problemDetail;
   }
 
+  @ExceptionHandler(SelfTransferException.class)
+  public ProblemDetail handleSelfTransferException(SelfTransferException ex) {
+    ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(
+        HttpStatus.UNPROCESSABLE_CONTENT,
+        ex.getMessage()
+    );
+    problemDetail.setTitle("Self Transfer");
+    problemDetail.setType(ErrorTypes.SELF_TRANSFER_NOT_ALLOWED);
+    problemDetail.setProperty("timestamp", Instant.now());
+
+    return problemDetail;
+  }
+
   @ExceptionHandler(HttpMessageNotReadableException.class)
   public ProblemDetail handleHttpMessageNotReadable(HttpMessageNotReadableException ex) {
     String detail = "Invalid request body or malformed JSON.";
