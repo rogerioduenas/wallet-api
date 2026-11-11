@@ -42,7 +42,7 @@ public class CustomerServiceTest {
   private UserRepository userRepository;
 
   @Mock
-  private WalletRepository walletRepository;
+  private WalletService walletService;
 
   private final Instant fixedInstant = Instant.parse("2026-10-07T10:00:00Z");
   private final Clock clock = Clock.fixed(fixedInstant, ZoneId.of("UTC"));
@@ -56,7 +56,7 @@ public class CustomerServiceTest {
 
   @BeforeEach
   void setUp() {
-    customerService = new CustomerService(userRepository, walletRepository, clock, passwordEncoder, customerMapper);
+    customerService = new CustomerService(userRepository, walletService, clock, passwordEncoder, customerMapper);
   }
 
   @Test
@@ -81,7 +81,7 @@ public class CustomerServiceTest {
     given(passwordEncoder.encode(VALID_REQUEST.password())).willReturn(encodedPassword);
     given(customerMapper.toEntity(VALID_REQUEST, encodedPassword, fixedInstant)).willReturn(savedUser);
     given(userRepository.save(savedUser)).willReturn(savedUser);
-    given(walletRepository.save(any(Wallet.class))).willReturn(savedWallet);
+    given(walletService.createWalletForUser(savedUser)).willReturn(savedWallet);
     given(customerMapper.toDTO(savedUser, savedWallet)).willReturn(expectedResponse);
 
     // When
@@ -91,7 +91,7 @@ public class CustomerServiceTest {
     assertThat(response).isEqualTo(expectedResponse);
 
     then(userRepository).should().save(savedUser);
-    then(walletRepository).should().save(any(Wallet.class));
+    then(walletService).should().createWalletForUser(savedUser);
   }
 
   @Test
@@ -112,7 +112,7 @@ public class CustomerServiceTest {
         .hasMessage("Email already registered in the system");
 
     then(userRepository).should(never()).save(any(User.class));
-    then(walletRepository).should(never()).save(any(Wallet.class));
+    then(walletService).should(never()).createWalletForUser(any(User.class));
   }
 
   @Test
@@ -125,12 +125,12 @@ public class CustomerServiceTest {
     assertThatThrownBy(() -> customerService.register(VALID_REQUEST))
         .isInstanceOf(RuntimeException.class);
 
-    then(walletRepository).should(never()).save(any(Wallet.class));
+    then(walletService).should(never()).createWalletForUser(any(User.class));
   }
 
   @Test
-  @DisplayName("Should throw Exception when walletRepository save fails")
-  void givenWalletRepositoryError_whenRegister_thenThrowException() {
+  @DisplayName("Should throw Exception when walletService createWalletForUser fails")
+  void givenWalletServiceError_whenRegister_thenThrowException() {
     // Given
     User dummyUser = new User(VALID_NAME, VALID_EMAIL, "encodedPassword", fixedInstant);
 
@@ -139,7 +139,7 @@ public class CustomerServiceTest {
     given(customerMapper.toEntity(VALID_REQUEST, "encodedPassword", fixedInstant)).willReturn(dummyUser);
     given(userRepository.save(dummyUser)).willReturn(dummyUser);
 
-    given(walletRepository.save(any(Wallet.class))).willThrow(new RuntimeException("Database error"));
+    given(walletService.createWalletForUser(dummyUser)).willThrow(new RuntimeException("Database error"));
 
     // When & Then
     assertThatThrownBy(() -> customerService.register(VALID_REQUEST))
@@ -147,5 +147,6 @@ public class CustomerServiceTest {
         .hasMessage("Database error");
 
     then(userRepository).should().save(dummyUser);
+    then(walletService).should().createWalletForUser(dummyUser);
   }
 }

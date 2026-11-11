@@ -18,18 +18,18 @@ import java.time.Clock;
 public class CustomerService {
 
   private final UserRepository userRepository;
-  private final WalletRepository walletRepository;
+  private final WalletService walletService;
   private final Clock clock;
   private final PasswordEncoder passwordEncoder;
   private final CustomerMapper customerMapper;
 
   public CustomerService(UserRepository userRepository,
-                         WalletRepository walletRepository,
+                         WalletService walletService,
                          Clock clock,
                          PasswordEncoder passwordEncoder,
                          CustomerMapper customerMapper) {
     this.userRepository = userRepository;
-    this.walletRepository = walletRepository;
+    this.walletService = walletService;
     this.clock = clock;
     this.passwordEncoder = passwordEncoder;
     this.customerMapper = customerMapper;
@@ -37,7 +37,7 @@ public class CustomerService {
 
   @Transactional(rollbackFor = Exception.class)
   public CustomerRegistrationResponse register(CustomerRegistrationRequest request) {
-    if (userRepository.existsByEmail(request.email())){
+    if (userRepository.existsByEmail(request.email())) {
       throw new EmailAlreadyExistsException("Email already registered in the system");
     }
 
@@ -46,8 +46,7 @@ public class CustomerService {
 
     User savedUser = userRepository.save(user);
 
-    Wallet wallet = new Wallet(savedUser, savedUser.getCreatedAt());
-    Wallet savedWallet = walletRepository.save(wallet);
+    Wallet savedWallet = walletService.createWalletForUser(savedUser);
 
     return customerMapper.toDTO(savedUser, savedWallet);
   }
