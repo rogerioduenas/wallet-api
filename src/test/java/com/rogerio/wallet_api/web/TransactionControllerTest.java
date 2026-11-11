@@ -1,6 +1,5 @@
 package com.rogerio.wallet_api.web;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.rogerio.wallet_api.dto.request.DepositRequest;
 import com.rogerio.wallet_api.dto.request.TransferRequest;
 import com.rogerio.wallet_api.dto.request.WithdrawRequest;
@@ -25,7 +24,7 @@ import java.util.UUID;
 
 import static org.hamcrest.Matchers.containsString;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.BDDMockito.given;
+  import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
