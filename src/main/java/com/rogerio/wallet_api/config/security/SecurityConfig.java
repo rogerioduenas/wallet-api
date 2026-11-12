@@ -5,6 +5,7 @@ import com.rogerio.wallet_api.service.TokenService;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.data.web.config.EnableSpringDataWebSupport;
 import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
@@ -49,6 +50,7 @@ public class SecurityConfig {
             .requestMatchers(HttpMethod.POST, "/api/v1/wallets/withdraw").hasRole("USER")
             .requestMatchers(HttpMethod.POST, "/api/v1/wallets/transfer").hasRole("USER")
             .requestMatchers(HttpMethod.GET, "/api/v1/wallets/balance").hasRole("USER")
+            .requestMatchers(HttpMethod.GET, "/api/v1/wallets/statement").hasRole("USER")
             .anyRequest().authenticated()
         )
         .exceptionHandling(exception -> exception

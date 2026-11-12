@@ -4,6 +4,7 @@ import com.rogerio.wallet_api.domain.model.Transaction;
 import com.rogerio.wallet_api.domain.model.User;
 import com.rogerio.wallet_api.domain.model.Wallet;
 import com.rogerio.wallet_api.domain.model.enums.Status;
+import com.rogerio.wallet_api.domain.model.enums.TransactionType;
 import com.rogerio.wallet_api.domain.repository.TransactionRepository;
 import com.rogerio.wallet_api.domain.repository.UserRepository;
 import com.rogerio.wallet_api.domain.repository.WalletRepository;
@@ -11,26 +12,35 @@ import com.rogerio.wallet_api.dto.request.DepositRequest;
 import com.rogerio.wallet_api.dto.request.TransferRequest;
 import com.rogerio.wallet_api.dto.request.WithdrawRequest;
 import com.rogerio.wallet_api.dto.response.TransactionResponse;
+import com.rogerio.wallet_api.dto.response.TransactionStatementResponse;
 import com.rogerio.wallet_api.exception.*;
 import com.rogerio.wallet_api.mapper.TransactionMapper;
 import org.junit.jupiter.api.*;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.security.authentication.AuthenticationCredentialsNotFoundException;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneId;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
 import static org.mockito.Mockito.mock;
@@ -382,6 +392,153 @@ public class TransactionServiceTest {
       then(walletRepository).shouldHaveNoMoreInteractions();
       then(transactionRepository).shouldHaveNoInteractions();
       then(transactionMapper).shouldHaveNoInteractions();
+    }
+  }
+  @Nested
+  @DisplayName("Statement")
+  class StatementTests {
+
+    @Test
+    @DisplayName("Should successfully return paginated statement when customer is active and wallet exists")
+    void givenActiveCustomerAndWallet_whenGetCustomerStatement_thenReturnsPagedStatement() {
+      // Given
+      mockAuthenticatedUser(USER_ID);
+
+      User activeUser = new User();
+      activeUser.setStatus(Status.ACTIVE);
+
+      Wallet wallet = new Wallet();
+      ReflectionTestUtils.setField(wallet, "id", UUID.randomUUID());
+
+      Pageable pageable = PageRequest.of(0, 10);
+      Transaction transaction = new Transaction();
+      Page<Transaction> transactionPage = new PageImpl<>(List.of(transaction), pageable, 1);
+
+      TransactionStatementResponse expectedResponse = mock(TransactionStatementResponse.class);
+
+      given(userRepository.findById(USER_ID)).willReturn(Optional.of(activeUser));
+      given(walletRepository.findByUserId(USER_ID)).willReturn(Optional.of(wallet));
+
+      given(transactionRepository.findAll(any(Specification.class), eq(pageable))).willReturn(transactionPage);
+      given(transactionMapper.toStatementDto(transaction)).willReturn(expectedResponse);
+
+      Page<TransactionStatementResponse> response = transactionService.getCustomerStatement(null, null, null, pageable);
+
+      // Then
+      assertThat(response).isNotNull();
+      assertThat(response.getContent()).hasSize(1);
+      assertThat(response.getContent().getFirst()).isEqualTo(expectedResponse);
+    }
+
+    @Test
+    @DisplayName("Should throw AuthenticationCredentialsNotFoundException when user is not authenticated in security context")
+    void givenUnauthenticatedUser_whenGetCustomerStatement_thenThrowAuthenticationCredentialsNotFoundException() {
+      // Given
+      Pageable pageable = PageRequest.of(0, 10);
+
+      // When & Then
+      assertThatThrownBy(() -> transactionService.getCustomerStatement(null, null, null, pageable))
+          .isInstanceOf(AuthenticationCredentialsNotFoundException.class)
+          .hasMessage("User is not authenticated");
+
+      then(userRepository).shouldHaveNoInteractions();
+      then(walletRepository).shouldHaveNoInteractions();
+      then(transactionRepository).shouldHaveNoInteractions();
+      then(transactionMapper).shouldHaveNoInteractions();
+    }
+
+    @Test
+    @DisplayName("Should throw UserNotFoundException when customer ID from context does not exist in repository")
+    void givenNonExistentUser_whenGetCustomerStatement_thenThrowUserNotFoundException() {
+      // Given
+      mockAuthenticatedUser(USER_ID);
+      Pageable pageable = PageRequest.of(0, 10);
+
+      given(userRepository.findById(USER_ID)).willReturn(Optional.empty());
+
+      // When & Then
+      assertThatThrownBy(() -> transactionService.getCustomerStatement(null, null, null, pageable))
+          .isInstanceOf(UserNotFoundException.class)
+          .hasMessage("User not found");
+
+      then(walletRepository).shouldHaveNoInteractions();
+      then(transactionRepository).shouldHaveNoInteractions();
+      then(transactionMapper).shouldHaveNoInteractions();
+    }
+
+    @Test
+    @DisplayName("Should throw UserBlockedException when customer account status is not ACTIVE")
+    void givenInactiveUser_whenGetCustomerStatement_thenThrowUserBlockedException() {
+      // Given
+      mockAuthenticatedUser(USER_ID);
+      Pageable pageable = PageRequest.of(0, 10);
+
+      User inactiveUser = new User();
+      inactiveUser.setStatus(Status.BLOCKED);
+
+      given(userRepository.findById(USER_ID)).willReturn(Optional.of(inactiveUser));
+
+      // When & Then
+      assertThatThrownBy(() -> transactionService.getCustomerStatement(null, null, null, pageable))
+          .isInstanceOf(UserBlockedException.class)
+          .hasMessage("User is not active");
+
+      then(walletRepository).shouldHaveNoInteractions();
+      then(transactionRepository).shouldHaveNoInteractions();
+      then(transactionMapper).shouldHaveNoInteractions();
+    }
+
+    @Test
+    @DisplayName("Should throw WalletNotFoundException when active user does not have an associated wallet")
+    void givenActiveUserWithoutWallet_whenGetCustomerStatement_thenThrowWalletNotFoundException() {
+      // Given
+      mockAuthenticatedUser(USER_ID);
+      Pageable pageable = PageRequest.of(0, 10);
+      User activeUser = new User();
+      activeUser.setStatus(Status.ACTIVE);
+
+      given(userRepository.findById(USER_ID)).willReturn(Optional.of(activeUser));
+      given(walletRepository.findByUserId(USER_ID)).willReturn(Optional.empty());
+
+      // When & Then
+      assertThatThrownBy(() -> transactionService.getCustomerStatement(null, null, null, pageable))
+          .isInstanceOf(WalletNotFoundException.class)
+          .hasMessage("Wallet not found");
+
+      then(transactionRepository).shouldHaveNoInteractions();
+      then(transactionMapper).shouldHaveNoInteractions();
+    }
+
+    @Test
+    @DisplayName("Should apply filters correctly when startDate, endDate and type are provided")
+    void givenFiltersProvided_whenGetCustomerStatement_thenAppliesSpecificationFilters() {
+      // Given
+      mockAuthenticatedUser(USER_ID);
+      User activeUser = new User();
+      activeUser.setStatus(Status.ACTIVE);
+
+      Wallet wallet = new Wallet();
+      ReflectionTestUtils.setField(wallet, "id", UUID.randomUUID());
+
+      Pageable pageable = PageRequest.of(0, 10);
+      Instant startDate = Instant.parse("2026-10-01T00:00:00Z");
+      Instant endDate = Instant.parse("2026-10-31T00:00:00Z");
+      TransactionType type = TransactionType.DEPOSIT;
+
+      Page<Transaction> emptyPage = new PageImpl<>(List.of(), pageable, 0);
+
+      given(userRepository.findById(USER_ID)).willReturn(Optional.of(activeUser));
+      given(walletRepository.findByUserId(USER_ID)).willReturn(Optional.of(wallet));
+
+      given(transactionRepository.findAll(any(Specification.class), eq(pageable))).willReturn(emptyPage);
+
+      // When
+      Page<TransactionStatementResponse> result = transactionService.getCustomerStatement(startDate, endDate, type, pageable);
+
+      // Then
+      assertThat(result).isNotNull();
+
+      then(transactionRepository).should().findAll(any(Specification.class), eq(pageable));
     }
   }
 
