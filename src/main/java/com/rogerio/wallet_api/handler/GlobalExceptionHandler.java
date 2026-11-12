@@ -11,9 +11,9 @@ import org.springframework.security.core.AuthenticationException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import tools.jackson.databind.exc.InvalidFormatException;
 
-import java.time.Clock;
 import java.time.Instant;
 import java.util.List;
 
@@ -53,6 +53,20 @@ public class GlobalExceptionHandler {
         .toList();
 
     problemDetail.setProperty("invalidFields", invalidFields);
+
+    return problemDetail;
+  }
+
+  @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+  public ProblemDetail handleMethodArgumentTypeMismatchException(MethodArgumentTypeMismatchException ex) {
+    ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(
+        HttpStatus.BAD_REQUEST,
+        ex.getMessage()
+    );
+
+    problemDetail.setTitle("Invalid Input Parameters");
+    problemDetail.setType(ErrorTypes.INVALID_PARAMS);
+    problemDetail.setProperty("timestamp", Instant.now());
 
     return problemDetail;
   }

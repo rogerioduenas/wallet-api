@@ -6,22 +6,28 @@ import com.rogerio.wallet_api.domain.model.Wallet;
 import com.rogerio.wallet_api.domain.model.enums.Status;
 import com.rogerio.wallet_api.domain.model.enums.TransactionType;
 import com.rogerio.wallet_api.domain.repository.TransactionRepository;
+import com.rogerio.wallet_api.domain.repository.TransactionFilter;
 import com.rogerio.wallet_api.domain.repository.UserRepository;
 import com.rogerio.wallet_api.domain.repository.WalletRepository;
 import com.rogerio.wallet_api.dto.request.DepositRequest;
 import com.rogerio.wallet_api.dto.request.TransferRequest;
 import com.rogerio.wallet_api.dto.request.WithdrawRequest;
 import com.rogerio.wallet_api.dto.response.TransactionResponse;
+import com.rogerio.wallet_api.dto.response.TransactionStatementResponse;
 import com.rogerio.wallet_api.exception.*;
 import com.rogerio.wallet_api.mapper.TransactionMapper;
-import jakarta.transaction.Transactional;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.security.authentication.AuthenticationCredentialsNotFoundException;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.Clock;
+import java.time.Instant;
 import java.util.UUID;
 
 @Service
@@ -89,6 +95,23 @@ public class TransactionService {
     walletRepository.save(recipientWallet);
 
     return saveTransaction(senderWallet, amount, TransactionType.TRANSFER, recipientWallet);
+  }
+
+  @Transactional
+  public Page<TransactionStatementResponse> getCustomerStatement(
+      Instant startDate, Instant endDate, TransactionType type, Pageable pageable) {
+
+    UUID customerId = getCurrentUserIdFromSecurityContext();
+    Wallet customerWallet = getWalletFromActiveUser(customerId);
+
+    Specification<Transaction> filter = Specification.where(TransactionFilter.belongsToWallet(customerWallet.getId()))
+        .and(TransactionFilter.createdAfter(startDate))
+        .and(TransactionFilter.createdBefore(endDate))
+        .and(TransactionFilter.hasType(type));
+
+    Page<Transaction> transactions = transactionRepository.findAll(filter, pageable);
+
+    return transactions.map(transactionMapper::toStatementDto);
   }
 
   public TransactionResponse saveTransaction(

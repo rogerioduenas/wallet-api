@@ -11,11 +11,11 @@ import com.rogerio.wallet_api.exception.EmailAlreadyExistsException;
 import com.rogerio.wallet_api.exception.UserNotFoundException;
 import com.rogerio.wallet_api.mapper.AdminMapper;
 import com.rogerio.wallet_api.mapper.UserMapper;
-import jakarta.transaction.Transactional;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Clock;
 import java.util.UUID;
@@ -56,6 +56,7 @@ public class AdminService {
     return adminMapper.toDTO(savedUser);
   }
 
+  @Transactional(readOnly = true)
   public Page<UserResponse> listUsers(Pageable pageable) {
     Page<User> users = userRepository.findAll(pageable);
     return users.map(userMapper::toDto);

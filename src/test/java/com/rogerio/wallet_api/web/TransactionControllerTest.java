@@ -1,9 +1,11 @@
 package com.rogerio.wallet_api.web;
 
+import com.rogerio.wallet_api.domain.model.enums.TransactionType;
 import com.rogerio.wallet_api.dto.request.DepositRequest;
 import com.rogerio.wallet_api.dto.request.TransferRequest;
 import com.rogerio.wallet_api.dto.request.WithdrawRequest;
 import com.rogerio.wallet_api.dto.response.TransactionResponse;
+import com.rogerio.wallet_api.dto.response.TransactionStatementResponse;
 import com.rogerio.wallet_api.exception.*;
 import com.rogerio.wallet_api.handler.ErrorTypes;
 import com.rogerio.wallet_api.service.TransactionService;
@@ -13,6 +15,10 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
@@ -20,13 +26,15 @@ import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneId;
+import java.util.List;
 import java.util.UUID;
 
 import static org.hamcrest.Matchers.containsString;
 import static org.mockito.ArgumentMatchers.any;
-  import static org.mockito.BDDMockito.given;
+import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
@@ -318,19 +326,95 @@ public class TransactionControllerTest extends BaseWebTest {
     @DisplayName("Should return appropriate error response when recipient is inactive")
     void givenInactiveRecipient_whenTransfer_thenReturnsErrorResponse() throws Exception {
       // Given
-      TransferRequest  request = new TransferRequest(UUID.randomUUID(), BigDecimal.valueOf(100.00));
+      TransferRequest request = new TransferRequest(UUID.randomUUID(), BigDecimal.valueOf(100.00));
 
       given(transactionService.transfer(any(TransferRequest.class))).willThrow(UserBlockedException.class);
 
       // When & Then
       mockMvc.perform(post("/api/v1/wallets/transfer")
-      .contentType(MediaType.APPLICATION_JSON)
-      .content(objectMapper.writeValueAsString(request))
-          .with(user("email.com").roles("USER")))
+              .contentType(MediaType.APPLICATION_JSON)
+              .content(objectMapper.writeValueAsString(request))
+              .with(user("email.com").roles("USER")))
           .andExpect(status().isForbidden())
           .andExpect(jsonPath("$.type")
               .value(ErrorTypes.FORBIDDEN.toString()));
 
+    }
+  }
+
+  @Nested
+  @DisplayName("Statement")
+  class Statement {
+
+    @Test
+    @DisplayName("Should return 200 OK with paginated statement when request is valid")
+    void givenValidParameters_whenGetStatement_thenReturnsPagedStatement() throws Exception {
+      // Given
+      Pageable pageable = PageRequest.of(0, 3);
+      TransactionStatementResponse statementResponse = new TransactionStatementResponse(
+          UUID.randomUUID(),
+          BigDecimal.valueOf(150.00),
+          TransactionType.DEPOSIT,
+          null,
+          Instant.now()
+      );
+      Page<TransactionStatementResponse> pagedResponse = new PageImpl<>(List.of(statementResponse), pageable, 1);
+
+      given(transactionService.getCustomerStatement(any(), any(), any(), any(Pageable.class)))
+          .willReturn(pagedResponse);
+
+      // When & Then
+      mockMvc.perform(get("/api/v1/wallets/statement")
+              .param("page", "0")
+              .param("size", "3")
+              .param("type", "DEPOSIT")
+              .with(user("email@email.com").roles("USER")))
+          .andExpect(status().isOk())
+          .andExpect(jsonPath("$.content").isArray())
+          .andExpect(jsonPath("$.content[0].id").value(statementResponse.id().toString()))
+          .andExpect(jsonPath("$.content[0].amount").value(statementResponse.amount().doubleValue()))
+          .andExpect(jsonPath("$.content[0].type").value(statementResponse.type().toString()))
+          .andExpect(jsonPath("$.totalElements").value(1));
+
+      then(transactionService).should().getCustomerStatement(any(), any(), any(), any(Pageable.class));
+    }
+
+    @Test
+    @DisplayName("Should return 200 OK with empty page when statement has no transactions")
+    void givenNoTransactions_whenGetStatement_thenReturnsEmptyPagedStatement() throws Exception {
+      // Given
+      Pageable pageable = PageRequest.of(0, 3);
+      Page<TransactionStatementResponse> emptyPagedResponse = new PageImpl<>(List.of(), pageable, 0);
+
+      given(transactionService.getCustomerStatement(any(), any(), any(), any(Pageable.class)))
+          .willReturn(emptyPagedResponse);
+
+      // When & Then
+      mockMvc.perform(get("/api/v1/wallets/statement")
+              .with(user("email@email.com").roles("USER")))
+          .andExpect(status().isOk())
+          .andExpect(jsonPath("$.content").isArray())
+          .andExpect(jsonPath("$.content").isEmpty())
+          .andExpect(jsonPath("$.totalElements").value(0));
+
+      then(transactionService).should().getCustomerStatement(any(), any(), any(), any(Pageable.class));
+    }
+
+    @ParameterizedTest
+    @DisplayName("Should return 400 Bad Request when parameters have invalid format")
+    @CsvSource({
+        "startDate, invalid-date-format",
+        "endDate,   invalid-date-format",
+        "type,      invalid-transaction-type"
+    })
+    void givenInvalidParameters_whenGetStatement_thenReturnsBadRequest(String paramName, String paramValue) throws Exception {
+      // When & Then
+      mockMvc.perform(get("/api/v1/wallets/statement")
+              .param(paramName, paramValue)
+              .with(user("email@email.com").roles("USER")))
+          .andExpect(status().isBadRequest());
+
+      then(transactionService).shouldHaveNoInteractions();
     }
   }
 }
