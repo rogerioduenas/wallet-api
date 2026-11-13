@@ -101,7 +101,7 @@ public class TransactionServiceTest {
 
       TransactionResponse expectedResponse = new TransactionResponse(UUID.randomUUID(), fixedInstant);
 
-      given(walletRepository.findByUserId(USER_ID)).willReturn(Optional.of(WALLET));
+      given(walletRepository.findForUpdateByUserId(USER_ID)).willReturn(Optional.of(WALLET));
 
       given(transactionRepository.save(any(Transaction.class))).willAnswer(invocation -> invocation.getArgument(0));
       given(transactionMapper.toDto(any(Transaction.class))).willReturn(expectedResponse);
@@ -136,7 +136,7 @@ public class TransactionServiceTest {
       mockAuthenticatedUser(USER_ID);
       DepositRequest request = new DepositRequest(BigDecimal.valueOf(100.00));
 
-      given(walletRepository.findByUserId(USER_ID)).willReturn(Optional.empty());
+      given(walletRepository.findForUpdateByUserId(USER_ID)).willReturn(Optional.empty());
 
       // When & Then
       assertThatThrownBy(() -> transactionService.deposit(request)).isInstanceOf(WalletNotFoundException.class).hasMessage("Wallet not found");
@@ -156,7 +156,7 @@ public class TransactionServiceTest {
 
       BigDecimal expectedBalance = WALLET.getBalance().add(request.amount());
 
-      given(walletRepository.findByUserId(USER_ID)).willReturn(Optional.of(WALLET));
+      given(walletRepository.findForUpdateByUserId(USER_ID)).willReturn(Optional.of(WALLET));
       given(transactionRepository.save(any(Transaction.class))).willAnswer(inv -> inv.getArgument(0));
       given(transactionMapper.toDto(any(Transaction.class))).willReturn(mock(TransactionResponse.class));
 
@@ -184,7 +184,7 @@ public class TransactionServiceTest {
 
       TransactionResponse expectedResponse = new TransactionResponse(UUID.randomUUID(), fixedInstant);
 
-      given(walletRepository.findByUserId(USER_ID)).willReturn(Optional.of(WALLET));
+      given(walletRepository.findForUpdateByUserId(USER_ID)).willReturn(Optional.of(WALLET));
       given(transactionRepository.save(any(Transaction.class))).willAnswer(invocation -> invocation.getArgument(0));
       given(transactionMapper.toDto(any(Transaction.class))).willReturn(expectedResponse);
 
@@ -206,7 +206,7 @@ public class TransactionServiceTest {
 
       WithdrawRequest request = new WithdrawRequest(BigDecimal.valueOf(50.00));
 
-      given(walletRepository.findByUserId(USER_ID)).willReturn(Optional.of(WALLET));
+      given(walletRepository.findForUpdateByUserId(USER_ID)).willReturn(Optional.of(WALLET));
 
       // When & Then
       assertThatThrownBy(() -> transactionService.withdraw(request)).isInstanceOf(InsufficientBalanceException.class).hasMessage("Insufficient balance");
@@ -236,7 +236,7 @@ public class TransactionServiceTest {
       mockAuthenticatedUser(USER_ID);
       WithdrawRequest request = new WithdrawRequest(BigDecimal.valueOf(50.00));
 
-      given(walletRepository.findByUserId(USER_ID)).willReturn(Optional.empty());
+      given(walletRepository.findForUpdateByUserId(USER_ID)).willReturn(Optional.empty());
 
       // When & Then
       assertThatThrownBy(() -> transactionService.withdraw(request)).isInstanceOf(WalletNotFoundException.class).hasMessage("Wallet not found");
@@ -274,9 +274,9 @@ public class TransactionServiceTest {
       BigDecimal expectedSenderBalance = BigDecimal.valueOf(150.00);
       BigDecimal expectedReceiverBalance = BigDecimal.valueOf(100.00);
 
-      given(walletRepository.findByUserId(SENDER_ID)).willReturn(Optional.of(senderWallet));
+      given(walletRepository.findForUpdateByUserId(SENDER_ID)).willReturn(Optional.of(senderWallet));
       given(userRepository.findById(RECEIVER_ID)).willReturn(Optional.of(new User()));
-      given(walletRepository.findByUserId(RECEIVER_ID)).willReturn(Optional.of(receiverWallet));
+      given(walletRepository.findForUpdateByUserId(RECEIVER_ID)).willReturn(Optional.of(receiverWallet));
 
       // When
       transactionService.transfer(request);
@@ -313,9 +313,9 @@ public class TransactionServiceTest {
       TransferRequest request = new TransferRequest(RECEIVER_ID, BigDecimal.valueOf(50.00));
       mockAuthenticatedUser(SENDER_ID);
 
-      given(walletRepository.findByUserId(SENDER_ID)).willReturn(Optional.of(new Wallet()));
+      given(walletRepository.findForUpdateByUserId(SENDER_ID)).willReturn(Optional.of(new Wallet()));
       given(userRepository.findById(RECEIVER_ID)).willReturn(Optional.of(new User()));
-      given(walletRepository.findByUserId(RECEIVER_ID)).willReturn(Optional.empty());
+      given(walletRepository.findForUpdateByUserId(RECEIVER_ID)).willReturn(Optional.empty());
 
       // When & Then
       assertThatThrownBy(() -> transactionService.transfer(request))
@@ -335,7 +335,7 @@ public class TransactionServiceTest {
       TransferRequest request = new TransferRequest(RECEIVER_ID, BigDecimal.valueOf(50.00));
       mockAuthenticatedUser(SENDER_ID);
 
-      given(walletRepository.findByUserId(SENDER_ID)).willReturn(Optional.of(new Wallet()));
+      given(walletRepository.findForUpdateByUserId(SENDER_ID)).willReturn(Optional.of(new Wallet()));
       given(userRepository.findById(RECEIVER_ID)).willReturn(Optional.empty());
 
       // When & Then
@@ -357,7 +357,7 @@ public class TransactionServiceTest {
       blockedUser.setStatus(Status.BLOCKED);
       mockAuthenticatedUser(SENDER_ID);
 
-      given(walletRepository.findByUserId(SENDER_ID)).willReturn(Optional.of(new Wallet()));
+      given(walletRepository.findForUpdateByUserId(SENDER_ID)).willReturn(Optional.of(new Wallet()));
       given(userRepository.findById(RECEIVER_ID)).willReturn(Optional.of(blockedUser));
 
       // When & Then
@@ -380,9 +380,9 @@ public class TransactionServiceTest {
       Wallet recipientWallet = new Wallet();
       mockAuthenticatedUser(SENDER_ID);
 
-      given(walletRepository.findByUserId(SENDER_ID)).willReturn(Optional.of(senderWallet));
+      given(walletRepository.findForUpdateByUserId(SENDER_ID)).willReturn(Optional.of(senderWallet));
       given(userRepository.findById(RECEIVER_ID)).willReturn(Optional.of(new User()));
-      given(walletRepository.findByUserId(RECEIVER_ID)).willReturn(Optional.of(recipientWallet));
+      given(walletRepository.findForUpdateByUserId(RECEIVER_ID)).willReturn(Optional.of(recipientWallet));
 
       // When & Then
       assertThatThrownBy(() -> transactionService.transfer(request))
@@ -409,9 +409,6 @@ public class TransactionServiceTest {
         // Given
         mockAuthenticatedUser(USER_ID);
 
-        User activeUser = new User();
-        activeUser.setStatus(Status.ACTIVE);
-
         Wallet wallet = new Wallet();
         ReflectionTestUtils.setField(wallet, "id", UUID.randomUUID());
 
@@ -421,7 +418,6 @@ public class TransactionServiceTest {
 
         TransactionStatementResponse expectedResponse = mock(TransactionStatementResponse.class);
 
-        given(userRepository.findById(USER_ID)).willReturn(Optional.of(activeUser));
         given(walletRepository.findByUserId(USER_ID)).willReturn(Optional.of(wallet));
 
         given(transactionRepository.findAll(any(Specification.class), eq(pageable))).willReturn(transactionPage);
@@ -453,56 +449,12 @@ public class TransactionServiceTest {
       }
 
       @Test
-      @DisplayName("Should throw UserNotFoundException when customer ID from context does not exist in repository")
-      void givenNonExistentUser_whenGetCustomerStatement_thenThrowUserNotFoundException() {
-        // Given
-        mockAuthenticatedUser(USER_ID);
-        Pageable pageable = PageRequest.of(0, 10);
-
-        given(userRepository.findById(USER_ID)).willReturn(Optional.empty());
-
-        // When & Then
-        assertThatThrownBy(() -> transactionService.getCustomerStatement(null, null, null, pageable))
-            .isInstanceOf(UserNotFoundException.class)
-            .hasMessage("User not found");
-
-        then(walletRepository).shouldHaveNoInteractions();
-        then(transactionRepository).shouldHaveNoInteractions();
-        then(transactionMapper).shouldHaveNoInteractions();
-      }
-
-      @Test
-      @DisplayName("Should throw UserBlockedException when customer account status is not ACTIVE")
-      void givenInactiveUser_whenGetCustomerStatement_thenThrowUserBlockedException() {
-        // Given
-        mockAuthenticatedUser(USER_ID);
-        Pageable pageable = PageRequest.of(0, 10);
-
-        User inactiveUser = new User();
-        inactiveUser.setStatus(Status.BLOCKED);
-
-        given(userRepository.findById(USER_ID)).willReturn(Optional.of(inactiveUser));
-
-        // When & Then
-        assertThatThrownBy(() -> transactionService.getCustomerStatement(null, null, null, pageable))
-            .isInstanceOf(UserBlockedException.class)
-            .hasMessage("User is not active");
-
-        then(walletRepository).shouldHaveNoInteractions();
-        then(transactionRepository).shouldHaveNoInteractions();
-        then(transactionMapper).shouldHaveNoInteractions();
-      }
-
-      @Test
       @DisplayName("Should throw WalletNotFoundException when active user does not have an associated wallet")
       void givenActiveUserWithoutWallet_whenGetCustomerStatement_thenThrowWalletNotFoundException() {
         // Given
         mockAuthenticatedUser(USER_ID);
         Pageable pageable = PageRequest.of(0, 10);
-        User activeUser = new User();
-        activeUser.setStatus(Status.ACTIVE);
 
-        given(userRepository.findById(USER_ID)).willReturn(Optional.of(activeUser));
         given(walletRepository.findByUserId(USER_ID)).willReturn(Optional.empty());
 
         // When & Then
@@ -519,8 +471,6 @@ public class TransactionServiceTest {
       void givenFiltersProvided_whenGetCustomerStatement_thenAppliesSpecificationFilters() {
         // Given
         mockAuthenticatedUser(USER_ID);
-        User activeUser = new User();
-        activeUser.setStatus(Status.ACTIVE);
 
         Wallet wallet = new Wallet();
         ReflectionTestUtils.setField(wallet, "id", UUID.randomUUID());
@@ -532,7 +482,6 @@ public class TransactionServiceTest {
 
         Page<Transaction> emptyPage = new PageImpl<>(List.of(), pageable, 0);
 
-        given(userRepository.findById(USER_ID)).willReturn(Optional.of(activeUser));
         given(walletRepository.findByUserId(USER_ID)).willReturn(Optional.of(wallet));
 
         given(transactionRepository.findAll(any(Specification.class), eq(pageable))).willReturn(emptyPage);

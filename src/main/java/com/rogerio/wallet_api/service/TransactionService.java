@@ -55,7 +55,7 @@ public class TransactionService {
   public TransactionResponse deposit(DepositRequest request) {
     UUID userId = getCurrentUserIdFromSecurityContext();
     BigDecimal amount = request.amount();
-    Wallet wallet = getWalletByUserId(userId);
+    Wallet wallet = getWalletByUserIdForUpdate(userId);
 
     wallet.setBalance(wallet.getBalance().add(amount));
 
@@ -66,7 +66,7 @@ public class TransactionService {
   public TransactionResponse withdraw(WithdrawRequest request) {
     UUID userId = getCurrentUserIdFromSecurityContext();
     BigDecimal amount = request.amount();
-    Wallet wallet = getWalletByUserId(userId);
+    Wallet wallet = getWalletByUserIdForUpdate(userId);
 
     ensureSufficientBalance(wallet, amount);
 
@@ -84,8 +84,10 @@ public class TransactionService {
       throw new SelfTransferException("You can't transfer funds to yourself");
     }
 
-    Wallet senderWallet = getWalletByUserId(senderId);
-    Wallet recipientWallet = getWalletFromActiveUser(request.recipientId());
+    Wallet senderWallet = getWalletByUserIdForUpdate(senderId);
+    User recipient = findUserById(request.recipientId());
+    ensureActiveUser(recipient);
+    Wallet recipientWallet = getWalletByUserIdForUpdate(request.recipientId());
 
     ensureSufficientBalance(senderWallet, amount);
 
@@ -113,12 +115,12 @@ public class TransactionService {
     return transactionMapper.toDto(transaction);
   }
 
-  @Transactional
+  @Transactional(readOnly = true)
   public Page<TransactionStatementResponse> getCustomerStatement(
       Instant startDate, Instant endDate, TransactionType type, Pageable pageable) {
 
     UUID customerId = getCurrentUserIdFromSecurityContext();
-    Wallet customerWallet = getWalletFromActiveUser(customerId);
+    Wallet customerWallet = getWalletByUserId(customerId);
 
     Specification<Transaction> filter = Specification.where(TransactionFilter.belongsToWallet(customerWallet.getId()))
         .and(TransactionFilter.createdAfter(startDate))
@@ -130,7 +132,7 @@ public class TransactionService {
     return transactions.map(transactionMapper::toStatementDto);
   }
 
-  @Transactional
+  @Transactional(readOnly = true)
   public Page<TransactionStatementResponse> getStatementForAdmin(UUID userId, Pageable pageable) {
     User customer = findUserById(userId);
     Wallet customerWallet = getWalletByUserId(customer.getId());
@@ -155,14 +157,10 @@ public class TransactionService {
     }
   }
 
-  private Wallet getWalletFromActiveUser(UUID userId) {
-    User user = findUserById(userId);
-
-    if (!user.getStatus().equals(Status.ACTIVE)) {
+  private void ensureActiveUser(User user) {
+    if (user.getStatus() != Status.ACTIVE) {
       throw new UserBlockedException("User is not active");
     }
-
-    return getWalletByUserId(userId);
   }
 
   private User findUserById(UUID userId){
@@ -172,6 +170,11 @@ public class TransactionService {
 
   private Wallet getWalletByUserId(UUID userId) {
     return walletRepository.findByUserId(userId)
+        .orElseThrow(() -> new WalletNotFoundException("Wallet not found"));
+  }
+
+  private Wallet getWalletByUserIdForUpdate(UUID userId) {
+    return walletRepository.findForUpdateByUserId(userId)
         .orElseThrow(() -> new WalletNotFoundException("Wallet not found"));
   }
 }
