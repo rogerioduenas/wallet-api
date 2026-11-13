@@ -97,6 +97,22 @@ public class TransactionService {
     return saveTransaction(senderWallet, amount, TransactionType.TRANSFER, recipientWallet);
   }
 
+  private TransactionResponse saveTransaction(
+      Wallet wallet,
+      BigDecimal amount,
+      TransactionType type,
+      Wallet recipientWallet) {
+    Transaction transaction = new Transaction(
+        wallet,
+        amount,
+        type,
+        recipientWallet,
+        clock.instant());
+    transactionRepository.save(transaction);
+
+    return transactionMapper.toDto(transaction);
+  }
+
   @Transactional
   public Page<TransactionStatementResponse> getCustomerStatement(
       Instant startDate, Instant endDate, TransactionType type, Pageable pageable) {
@@ -114,20 +130,15 @@ public class TransactionService {
     return transactions.map(transactionMapper::toStatementDto);
   }
 
-  public TransactionResponse saveTransaction(
-      Wallet wallet,
-      BigDecimal amount,
-      TransactionType type,
-      Wallet recipientWallet) {
-    Transaction transaction = new Transaction(
-        wallet,
-        amount,
-        type,
-        recipientWallet,
-        clock.instant());
-    transactionRepository.save(transaction);
+  @Transactional
+  public Page<TransactionStatementResponse> getStatementForAdmin(UUID userId, Pageable pageable) {
+    User customer = findUserById(userId);
+    Wallet customerWallet = getWalletByUserId(customer.getId());
 
-    return transactionMapper.toDto(transaction);
+    Specification<Transaction> filter = TransactionFilter.belongsToWallet(customerWallet.getId());
+    Page<Transaction> transactions = transactionRepository.findAll(filter, pageable);
+
+    return transactions.map(transactionMapper::toStatementDto);
   }
 
   private UUID getCurrentUserIdFromSecurityContext() {
@@ -145,14 +156,18 @@ public class TransactionService {
   }
 
   private Wallet getWalletFromActiveUser(UUID userId) {
-    User user = userRepository.findById(userId)
-        .orElseThrow(() -> new UserNotFoundException("User not found"));
+    User user = findUserById(userId);
 
-    if (user.getStatus() != Status.ACTIVE) {
+    if (!user.getStatus().equals(Status.ACTIVE)) {
       throw new UserBlockedException("User is not active");
     }
 
     return getWalletByUserId(userId);
+  }
+
+  private User findUserById(UUID userId){
+    return userRepository.findById(userId)
+        .orElseThrow(() -> new UserNotFoundException("User not found"));
   }
 
   private Wallet getWalletByUserId(UUID userId) {
