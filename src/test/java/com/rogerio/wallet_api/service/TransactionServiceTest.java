@@ -319,7 +319,7 @@ public class TransactionServiceTest {
 
       // When & Then
       assertThatThrownBy(() -> transactionService.transfer(request))
-      .isInstanceOf(WalletNotFoundException.class)
+          .isInstanceOf(WalletNotFoundException.class)
           .hasMessage("Wallet not found");
 
       then(walletRepository).shouldHaveNoMoreInteractions();
@@ -340,7 +340,7 @@ public class TransactionServiceTest {
 
       // When & Then
       assertThatThrownBy(() -> transactionService.transfer(request))
-      .isInstanceOf(UserNotFoundException.class)
+          .isInstanceOf(UserNotFoundException.class)
           .hasMessage("User not found");
 
       then(walletRepository).shouldHaveNoMoreInteractions();
@@ -362,7 +362,7 @@ public class TransactionServiceTest {
 
       // When & Then
       assertThatThrownBy(() -> transactionService.transfer(request))
-      .isInstanceOf(UserBlockedException.class)
+          .isInstanceOf(UserBlockedException.class)
           .hasMessage("User is not active");
 
       then(walletRepository).shouldHaveNoMoreInteractions();
@@ -386,7 +386,7 @@ public class TransactionServiceTest {
 
       // When & Then
       assertThatThrownBy(() -> transactionService.transfer(request))
-      .isInstanceOf(InsufficientBalanceException.class)
+          .isInstanceOf(InsufficientBalanceException.class)
           .hasMessage("Insufficient balance");
 
       then(walletRepository).shouldHaveNoMoreInteractions();
@@ -394,151 +394,233 @@ public class TransactionServiceTest {
       then(transactionMapper).shouldHaveNoInteractions();
     }
   }
+
   @Nested
   @DisplayName("Statement")
   class StatementTests {
 
-    @Test
-    @DisplayName("Should successfully return paginated statement when customer is active and wallet exists")
-    void givenActiveCustomerAndWallet_whenGetCustomerStatement_thenReturnsPagedStatement() {
-      // Given
-      mockAuthenticatedUser(USER_ID);
+    @Nested
+    @DisplayName("Customer")
+    class CustomerStatementTests {
 
-      User activeUser = new User();
-      activeUser.setStatus(Status.ACTIVE);
+      @Test
+      @DisplayName("Should successfully return paginated statement when customer is active and wallet exists")
+      void givenActiveCustomerAndWallet_whenGetCustomerStatement_thenReturnsPagedStatement() {
+        // Given
+        mockAuthenticatedUser(USER_ID);
 
-      Wallet wallet = new Wallet();
-      ReflectionTestUtils.setField(wallet, "id", UUID.randomUUID());
+        User activeUser = new User();
+        activeUser.setStatus(Status.ACTIVE);
 
-      Pageable pageable = PageRequest.of(0, 10);
-      Transaction transaction = new Transaction();
-      Page<Transaction> transactionPage = new PageImpl<>(List.of(transaction), pageable, 1);
+        Wallet wallet = new Wallet();
+        ReflectionTestUtils.setField(wallet, "id", UUID.randomUUID());
 
-      TransactionStatementResponse expectedResponse = mock(TransactionStatementResponse.class);
+        Pageable pageable = PageRequest.of(0, 10);
+        Transaction transaction = new Transaction();
+        Page<Transaction> transactionPage = new PageImpl<>(List.of(transaction), pageable, 1);
 
-      given(userRepository.findById(USER_ID)).willReturn(Optional.of(activeUser));
-      given(walletRepository.findByUserId(USER_ID)).willReturn(Optional.of(wallet));
+        TransactionStatementResponse expectedResponse = mock(TransactionStatementResponse.class);
 
-      given(transactionRepository.findAll(any(Specification.class), eq(pageable))).willReturn(transactionPage);
-      given(transactionMapper.toStatementDto(transaction)).willReturn(expectedResponse);
+        given(userRepository.findById(USER_ID)).willReturn(Optional.of(activeUser));
+        given(walletRepository.findByUserId(USER_ID)).willReturn(Optional.of(wallet));
 
-      Page<TransactionStatementResponse> response = transactionService.getCustomerStatement(null, null, null, pageable);
+        given(transactionRepository.findAll(any(Specification.class), eq(pageable))).willReturn(transactionPage);
+        given(transactionMapper.toStatementDto(transaction)).willReturn(expectedResponse);
 
-      // Then
-      assertThat(response).isNotNull();
-      assertThat(response.getContent()).hasSize(1);
-      assertThat(response.getContent().getFirst()).isEqualTo(expectedResponse);
+        Page<TransactionStatementResponse> response = transactionService.getCustomerStatement(null, null, null, pageable);
+
+        // Then
+        assertThat(response).isNotNull();
+        assertThat(response.getContent()).hasSize(1);
+        assertThat(response.getContent().getFirst()).isEqualTo(expectedResponse);
+      }
+
+      @Test
+      @DisplayName("Should throw AuthenticationCredentialsNotFoundException when user is not authenticated in security context")
+      void givenUnauthenticatedUser_whenGetCustomerStatement_thenThrowAuthenticationCredentialsNotFoundException() {
+        // Given
+        Pageable pageable = PageRequest.of(0, 10);
+
+        // When & Then
+        assertThatThrownBy(() -> transactionService.getCustomerStatement(null, null, null, pageable))
+            .isInstanceOf(AuthenticationCredentialsNotFoundException.class)
+            .hasMessage("User is not authenticated");
+
+        then(userRepository).shouldHaveNoInteractions();
+        then(walletRepository).shouldHaveNoInteractions();
+        then(transactionRepository).shouldHaveNoInteractions();
+        then(transactionMapper).shouldHaveNoInteractions();
+      }
+
+      @Test
+      @DisplayName("Should throw UserNotFoundException when customer ID from context does not exist in repository")
+      void givenNonExistentUser_whenGetCustomerStatement_thenThrowUserNotFoundException() {
+        // Given
+        mockAuthenticatedUser(USER_ID);
+        Pageable pageable = PageRequest.of(0, 10);
+
+        given(userRepository.findById(USER_ID)).willReturn(Optional.empty());
+
+        // When & Then
+        assertThatThrownBy(() -> transactionService.getCustomerStatement(null, null, null, pageable))
+            .isInstanceOf(UserNotFoundException.class)
+            .hasMessage("User not found");
+
+        then(walletRepository).shouldHaveNoInteractions();
+        then(transactionRepository).shouldHaveNoInteractions();
+        then(transactionMapper).shouldHaveNoInteractions();
+      }
+
+      @Test
+      @DisplayName("Should throw UserBlockedException when customer account status is not ACTIVE")
+      void givenInactiveUser_whenGetCustomerStatement_thenThrowUserBlockedException() {
+        // Given
+        mockAuthenticatedUser(USER_ID);
+        Pageable pageable = PageRequest.of(0, 10);
+
+        User inactiveUser = new User();
+        inactiveUser.setStatus(Status.BLOCKED);
+
+        given(userRepository.findById(USER_ID)).willReturn(Optional.of(inactiveUser));
+
+        // When & Then
+        assertThatThrownBy(() -> transactionService.getCustomerStatement(null, null, null, pageable))
+            .isInstanceOf(UserBlockedException.class)
+            .hasMessage("User is not active");
+
+        then(walletRepository).shouldHaveNoInteractions();
+        then(transactionRepository).shouldHaveNoInteractions();
+        then(transactionMapper).shouldHaveNoInteractions();
+      }
+
+      @Test
+      @DisplayName("Should throw WalletNotFoundException when active user does not have an associated wallet")
+      void givenActiveUserWithoutWallet_whenGetCustomerStatement_thenThrowWalletNotFoundException() {
+        // Given
+        mockAuthenticatedUser(USER_ID);
+        Pageable pageable = PageRequest.of(0, 10);
+        User activeUser = new User();
+        activeUser.setStatus(Status.ACTIVE);
+
+        given(userRepository.findById(USER_ID)).willReturn(Optional.of(activeUser));
+        given(walletRepository.findByUserId(USER_ID)).willReturn(Optional.empty());
+
+        // When & Then
+        assertThatThrownBy(() -> transactionService.getCustomerStatement(null, null, null, pageable))
+            .isInstanceOf(WalletNotFoundException.class)
+            .hasMessage("Wallet not found");
+
+        then(transactionRepository).shouldHaveNoInteractions();
+        then(transactionMapper).shouldHaveNoInteractions();
+      }
+
+      @Test
+      @DisplayName("Should apply filters correctly when startDate, endDate and type are provided")
+      void givenFiltersProvided_whenGetCustomerStatement_thenAppliesSpecificationFilters() {
+        // Given
+        mockAuthenticatedUser(USER_ID);
+        User activeUser = new User();
+        activeUser.setStatus(Status.ACTIVE);
+
+        Wallet wallet = new Wallet();
+        ReflectionTestUtils.setField(wallet, "id", UUID.randomUUID());
+
+        Pageable pageable = PageRequest.of(0, 10);
+        Instant startDate = Instant.parse("2026-10-01T00:00:00Z");
+        Instant endDate = Instant.parse("2026-10-31T00:00:00Z");
+        TransactionType type = TransactionType.DEPOSIT;
+
+        Page<Transaction> emptyPage = new PageImpl<>(List.of(), pageable, 0);
+
+        given(userRepository.findById(USER_ID)).willReturn(Optional.of(activeUser));
+        given(walletRepository.findByUserId(USER_ID)).willReturn(Optional.of(wallet));
+
+        given(transactionRepository.findAll(any(Specification.class), eq(pageable))).willReturn(emptyPage);
+
+        // When
+        Page<TransactionStatementResponse> result = transactionService.getCustomerStatement(startDate, endDate, type, pageable);
+
+        // Then
+        assertThat(result).isNotNull();
+
+        then(transactionRepository).should().findAll(any(Specification.class), eq(pageable));
+      }
     }
 
-    @Test
-    @DisplayName("Should throw AuthenticationCredentialsNotFoundException when user is not authenticated in security context")
-    void givenUnauthenticatedUser_whenGetCustomerStatement_thenThrowAuthenticationCredentialsNotFoundException() {
-      // Given
-      Pageable pageable = PageRequest.of(0, 10);
+    @Nested
+    @DisplayName("Admin")
+    class AdminStatementTests {
 
-      // When & Then
-      assertThatThrownBy(() -> transactionService.getCustomerStatement(null, null, null, pageable))
-          .isInstanceOf(AuthenticationCredentialsNotFoundException.class)
-          .hasMessage("User is not authenticated");
+      private static final UUID TARGET_USER_ID = UUID.randomUUID();
 
-      then(userRepository).shouldHaveNoInteractions();
-      then(walletRepository).shouldHaveNoInteractions();
-      then(transactionRepository).shouldHaveNoInteractions();
-      then(transactionMapper).shouldHaveNoInteractions();
-    }
+      @Test
+      @DisplayName("Should successfully return paginated statement when target user and wallet exist")
+      void givenValidTargetUserAndWallet_whenGetStatementForAdmin_thenReturnsPagedStatement() {
+        // Given
+        User targetUser = new User();
+        ReflectionTestUtils.setField(targetUser, "id", TARGET_USER_ID);
 
-    @Test
-    @DisplayName("Should throw UserNotFoundException when customer ID from context does not exist in repository")
-    void givenNonExistentUser_whenGetCustomerStatement_thenThrowUserNotFoundException() {
-      // Given
-      mockAuthenticatedUser(USER_ID);
-      Pageable pageable = PageRequest.of(0, 10);
+        Wallet wallet = new Wallet();
+        ReflectionTestUtils.setField(wallet, "id", UUID.randomUUID());
 
-      given(userRepository.findById(USER_ID)).willReturn(Optional.empty());
+        Pageable pageable = PageRequest.of(0, 10);
+        Transaction transaction = new Transaction();
+        Page<Transaction> transactionPage = new PageImpl<>(List.of(transaction), pageable, 1);
 
-      // When & Then
-      assertThatThrownBy(() -> transactionService.getCustomerStatement(null, null, null, pageable))
-          .isInstanceOf(UserNotFoundException.class)
-          .hasMessage("User not found");
+        TransactionStatementResponse expectedResponse = mock(TransactionStatementResponse.class);
 
-      then(walletRepository).shouldHaveNoInteractions();
-      then(transactionRepository).shouldHaveNoInteractions();
-      then(transactionMapper).shouldHaveNoInteractions();
-    }
+        given(userRepository.findById(TARGET_USER_ID)).willReturn(Optional.of(targetUser));
+        given(walletRepository.findByUserId(TARGET_USER_ID)).willReturn(Optional.of(wallet));
+        given(transactionRepository.findAll(any(Specification.class), eq(pageable))).willReturn(transactionPage);
+        given(transactionMapper.toStatementDto(transaction)).willReturn(expectedResponse);
 
-    @Test
-    @DisplayName("Should throw UserBlockedException when customer account status is not ACTIVE")
-    void givenInactiveUser_whenGetCustomerStatement_thenThrowUserBlockedException() {
-      // Given
-      mockAuthenticatedUser(USER_ID);
-      Pageable pageable = PageRequest.of(0, 10);
+        // When
+        Page<TransactionStatementResponse> response = transactionService.getStatementForAdmin(TARGET_USER_ID, pageable);
 
-      User inactiveUser = new User();
-      inactiveUser.setStatus(Status.BLOCKED);
+        // Then
+        assertThat(response).isNotNull();
+        assertThat(response.getContent()).hasSize(1);
+        assertThat(response.getContent().getFirst()).isEqualTo(expectedResponse);
+      }
 
-      given(userRepository.findById(USER_ID)).willReturn(Optional.of(inactiveUser));
+      @Test
+      @DisplayName("Should throw UserNotFoundException when target user ID does not exist in repository")
+      void givenNonExistentTargetUser_whenGetStatementForAdmin_thenThrowUserNotFoundException() {
+        // Given
+        Pageable pageable = PageRequest.of(0, 10);
 
-      // When & Then
-      assertThatThrownBy(() -> transactionService.getCustomerStatement(null, null, null, pageable))
-          .isInstanceOf(UserBlockedException.class)
-          .hasMessage("User is not active");
+        given(userRepository.findById(TARGET_USER_ID)).willReturn(Optional.empty());
 
-      then(walletRepository).shouldHaveNoInteractions();
-      then(transactionRepository).shouldHaveNoInteractions();
-      then(transactionMapper).shouldHaveNoInteractions();
-    }
+        // When & Then
+        assertThatThrownBy(() -> transactionService.getStatementForAdmin(TARGET_USER_ID, pageable))
+            .isInstanceOf(UserNotFoundException.class)
+            .hasMessage("User not found");
 
-    @Test
-    @DisplayName("Should throw WalletNotFoundException when active user does not have an associated wallet")
-    void givenActiveUserWithoutWallet_whenGetCustomerStatement_thenThrowWalletNotFoundException() {
-      // Given
-      mockAuthenticatedUser(USER_ID);
-      Pageable pageable = PageRequest.of(0, 10);
-      User activeUser = new User();
-      activeUser.setStatus(Status.ACTIVE);
+        then(walletRepository).shouldHaveNoInteractions();
+        then(transactionRepository).shouldHaveNoInteractions();
+        then(transactionMapper).shouldHaveNoInteractions();
+      }
 
-      given(userRepository.findById(USER_ID)).willReturn(Optional.of(activeUser));
-      given(walletRepository.findByUserId(USER_ID)).willReturn(Optional.empty());
+      @Test
+      @DisplayName("Should throw WalletNotFoundException when target user does not have an associated wallet")
+      void givenTargetUserWithoutWallet_whenGetStatementForAdmin_thenThrowWalletNotFoundException() {
+        // Given
+        Pageable pageable = PageRequest.of(0, 10);
+        User targetUser = new User();
+        ReflectionTestUtils.setField(targetUser, "id", TARGET_USER_ID);
+        targetUser.setStatus(Status.ACTIVE);
 
-      // When & Then
-      assertThatThrownBy(() -> transactionService.getCustomerStatement(null, null, null, pageable))
-          .isInstanceOf(WalletNotFoundException.class)
-          .hasMessage("Wallet not found");
+        given(userRepository.findById(TARGET_USER_ID)).willReturn(Optional.of(targetUser));
+        given(walletRepository.findByUserId(TARGET_USER_ID)).willReturn(Optional.empty());
 
-      then(transactionRepository).shouldHaveNoInteractions();
-      then(transactionMapper).shouldHaveNoInteractions();
-    }
+        // When & Then
+        assertThatThrownBy(() -> transactionService.getStatementForAdmin(TARGET_USER_ID, pageable))
+            .isInstanceOf(WalletNotFoundException.class)
+            .hasMessage("Wallet not found");
 
-    @Test
-    @DisplayName("Should apply filters correctly when startDate, endDate and type are provided")
-    void givenFiltersProvided_whenGetCustomerStatement_thenAppliesSpecificationFilters() {
-      // Given
-      mockAuthenticatedUser(USER_ID);
-      User activeUser = new User();
-      activeUser.setStatus(Status.ACTIVE);
-
-      Wallet wallet = new Wallet();
-      ReflectionTestUtils.setField(wallet, "id", UUID.randomUUID());
-
-      Pageable pageable = PageRequest.of(0, 10);
-      Instant startDate = Instant.parse("2026-10-01T00:00:00Z");
-      Instant endDate = Instant.parse("2026-10-31T00:00:00Z");
-      TransactionType type = TransactionType.DEPOSIT;
-
-      Page<Transaction> emptyPage = new PageImpl<>(List.of(), pageable, 0);
-
-      given(userRepository.findById(USER_ID)).willReturn(Optional.of(activeUser));
-      given(walletRepository.findByUserId(USER_ID)).willReturn(Optional.of(wallet));
-
-      given(transactionRepository.findAll(any(Specification.class), eq(pageable))).willReturn(emptyPage);
-
-      // When
-      Page<TransactionStatementResponse> result = transactionService.getCustomerStatement(startDate, endDate, type, pageable);
-
-      // Then
-      assertThat(result).isNotNull();
-
-      then(transactionRepository).should().findAll(any(Specification.class), eq(pageable));
+        then(transactionRepository).shouldHaveNoInteractions();
+        then(transactionMapper).shouldHaveNoInteractions();
+      }
     }
   }
 
