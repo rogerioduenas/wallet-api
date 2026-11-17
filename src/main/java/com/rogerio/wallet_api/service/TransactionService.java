@@ -78,16 +78,22 @@ public class TransactionService {
   @Transactional
   public TransactionResponse transfer(TransferRequest request) {
     UUID senderId = getCurrentUserIdFromSecurityContext();
+    UUID recipientId = request.recipientId();
     BigDecimal amount = request.amount();
 
     if (senderId.equals(request.recipientId())) {
       throw new SelfTransferException("You can't transfer funds to yourself");
     }
 
-    Wallet senderWallet = getWalletByUserIdForUpdate(senderId);
-    User recipient = findUserById(request.recipientId());
+    User recipient = findUserById(recipientId);
     ensureActiveUser(recipient);
-    Wallet recipientWallet = getWalletByUserIdForUpdate(request.recipientId());
+
+    boolean senderIsSmaller = senderId.compareTo(recipientId) < 0;
+    Wallet firstWallet = senderIsSmaller ? getWalletByUserIdForUpdate(senderId) : getWalletByUserIdForUpdate(recipientId);
+    Wallet secondWallet = senderIsSmaller ? getWalletByUserIdForUpdate(recipientId) : getWalletByUserIdForUpdate(senderId);
+
+    Wallet senderWallet = (firstWallet.getUser().getId().equals(senderId)) ? firstWallet : secondWallet;
+    Wallet recipientWallet = (firstWallet.getUser().getId().equals(recipientId)) ? firstWallet : secondWallet;
 
     ensureSufficientBalance(senderWallet, amount);
 
