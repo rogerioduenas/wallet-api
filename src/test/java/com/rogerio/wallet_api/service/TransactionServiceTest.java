@@ -36,6 +36,7 @@ import java.time.ZoneId;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.*;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -43,6 +44,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
+import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.mock;
 
 @ExtendWith(MockitoExtension.class)
@@ -252,11 +254,31 @@ public class TransactionServiceTest {
   class TransferTests {
     private UUID SENDER_ID;
     private UUID RECEIVER_ID;
+    private User senderUser;
+    private User receiverUser;
+    private Wallet senderWallet;
+    private Wallet receiverWallet;
 
     @BeforeEach
     void setUp() {
       SENDER_ID = UUID.randomUUID();
       RECEIVER_ID = UUID.randomUUID();
+
+      senderUser = new User();
+      ReflectionTestUtils.setField(senderUser, "id", SENDER_ID);
+      senderUser.setStatus(Status.ACTIVE);
+
+      receiverUser = new User();
+      ReflectionTestUtils.setField(receiverUser, "id", RECEIVER_ID);
+      receiverUser.setStatus(Status.ACTIVE);
+
+      senderWallet = new Wallet();
+      senderWallet.setUser(senderUser);
+      senderWallet.setBalance(BigDecimal.valueOf(200.00));
+
+      receiverWallet = new Wallet();
+      receiverWallet.setUser(receiverUser);
+      receiverWallet.setBalance(BigDecimal.valueOf(50.00));
     }
 
     @Test
@@ -266,17 +288,17 @@ public class TransactionServiceTest {
       TransferRequest request = new TransferRequest(RECEIVER_ID, BigDecimal.valueOf(50.00));
       mockAuthenticatedUser(SENDER_ID);
 
-      Wallet senderWallet = new Wallet();
-      senderWallet.setBalance(BigDecimal.valueOf(200.00));
-      Wallet receiverWallet = new Wallet();
-      receiverWallet.setBalance(BigDecimal.valueOf(50.00));
-
       BigDecimal expectedSenderBalance = BigDecimal.valueOf(150.00);
       BigDecimal expectedReceiverBalance = BigDecimal.valueOf(100.00);
 
-      given(walletRepository.findForUpdateByUserId(SENDER_ID)).willReturn(Optional.of(senderWallet));
-      given(userRepository.findById(RECEIVER_ID)).willReturn(Optional.of(new User()));
-      given(walletRepository.findForUpdateByUserId(RECEIVER_ID)).willReturn(Optional.of(receiverWallet));
+      given(walletRepository.findForUpdateByUserId(any(UUID.class))).willAnswer(invocation -> {
+        UUID id = invocation.getArgument(0);
+        if (id.equals(SENDER_ID)) return Optional.of(senderWallet);
+        if (id.equals(RECEIVER_ID)) return Optional.of(receiverWallet);
+        return Optional.empty();
+      });
+
+      given(userRepository.findById(RECEIVER_ID)).willReturn(Optional.of(receiverUser));
 
       // When
       transactionService.transfer(request);
@@ -290,8 +312,7 @@ public class TransactionServiceTest {
     @DisplayName("Should throw SelfTransferException when sender and recipient are the same")
     void givenSameSenderAndRecipient_whenTransfer_thenThrowSelfTransferException() {
       // Given
-      UUID sameId = SENDER_ID;
-      TransferRequest request = new TransferRequest(sameId, BigDecimal.valueOf(50.00));
+      TransferRequest request = new TransferRequest(SENDER_ID, BigDecimal.valueOf(50.00));
       mockAuthenticatedUser(SENDER_ID);
 
       // When & Then
@@ -303,7 +324,6 @@ public class TransactionServiceTest {
       then(userRepository).shouldHaveNoInteractions();
       then(transactionRepository).shouldHaveNoInteractions();
       then(transactionMapper).shouldHaveNoInteractions();
-
     }
 
     @Test
@@ -313,17 +333,20 @@ public class TransactionServiceTest {
       TransferRequest request = new TransferRequest(RECEIVER_ID, BigDecimal.valueOf(50.00));
       mockAuthenticatedUser(SENDER_ID);
 
-      given(walletRepository.findForUpdateByUserId(SENDER_ID)).willReturn(Optional.of(new Wallet()));
-      given(userRepository.findById(RECEIVER_ID)).willReturn(Optional.of(new User()));
-      given(walletRepository.findForUpdateByUserId(RECEIVER_ID)).willReturn(Optional.empty());
+      given(userRepository.findById(RECEIVER_ID)).willReturn(Optional.of(receiverUser));
+      given(walletRepository.findForUpdateByUserId(any(UUID.class))).willAnswer(invocation -> {
+        UUID id = invocation.getArgument(0);
+        if (id.equals(SENDER_ID)) return Optional.of(senderWallet);
+        return Optional.empty();
+      });
 
       // When & Then
       assertThatThrownBy(() -> transactionService.transfer(request))
           .isInstanceOf(WalletNotFoundException.class)
           .hasMessage("Wallet not found");
 
-      then(walletRepository).shouldHaveNoMoreInteractions();
-      then(userRepository).shouldHaveNoMoreInteractions();
+      then(userRepository).should().findById(RECEIVER_ID);
+      then(walletRepository).should(atLeastOnce()).findForUpdateByUserId(any(UUID.class));
       then(transactionRepository).shouldHaveNoInteractions();
       then(transactionMapper).shouldHaveNoInteractions();
     }
@@ -335,7 +358,6 @@ public class TransactionServiceTest {
       TransferRequest request = new TransferRequest(RECEIVER_ID, BigDecimal.valueOf(50.00));
       mockAuthenticatedUser(SENDER_ID);
 
-      given(walletRepository.findForUpdateByUserId(SENDER_ID)).willReturn(Optional.of(new Wallet()));
       given(userRepository.findById(RECEIVER_ID)).willReturn(Optional.empty());
 
       // When & Then
@@ -344,8 +366,8 @@ public class TransactionServiceTest {
           .hasMessage("User not found");
 
       then(walletRepository).shouldHaveNoMoreInteractions();
-      then(transactionRepository).shouldHaveNoInteractions();
-      then(transactionMapper).shouldHaveNoInteractions();
+      then(transactionRepository).shouldHaveNoMoreInteractions();
+      then(transactionMapper).shouldHaveNoMoreInteractions();
     }
 
     @Test
@@ -353,12 +375,10 @@ public class TransactionServiceTest {
     void givenInactiveRecipient_whenTransfer_thenThrowUserBlockedException() {
       // Given
       TransferRequest request = new TransferRequest(RECEIVER_ID, BigDecimal.valueOf(50.00));
-      User blockedUser = new User();
-      blockedUser.setStatus(Status.BLOCKED);
+      receiverUser.setStatus(Status.BLOCKED);
       mockAuthenticatedUser(SENDER_ID);
 
-      given(walletRepository.findForUpdateByUserId(SENDER_ID)).willReturn(Optional.of(new Wallet()));
-      given(userRepository.findById(RECEIVER_ID)).willReturn(Optional.of(blockedUser));
+      given(userRepository.findById(RECEIVER_ID)).willReturn(Optional.of(receiverUser));
 
       // When & Then
       assertThatThrownBy(() -> transactionService.transfer(request))
@@ -366,8 +386,8 @@ public class TransactionServiceTest {
           .hasMessage("User is not active");
 
       then(walletRepository).shouldHaveNoMoreInteractions();
-      then(transactionRepository).shouldHaveNoInteractions();
-      then(transactionMapper).shouldHaveNoInteractions();
+      then(transactionRepository).shouldHaveNoMoreInteractions();
+      then(transactionMapper).shouldHaveNoMoreInteractions();
     }
 
     @Test
@@ -375,14 +395,17 @@ public class TransactionServiceTest {
     void givenInsufficientBalance_whenTransfer_thenThrowInsufficientBalanceException() {
       // Given
       TransferRequest request = new TransferRequest(RECEIVER_ID, BigDecimal.valueOf(100.00));
-      Wallet senderWallet = new Wallet();
       senderWallet.setBalance(BigDecimal.valueOf(50.00));
-      Wallet recipientWallet = new Wallet();
       mockAuthenticatedUser(SENDER_ID);
 
-      given(walletRepository.findForUpdateByUserId(SENDER_ID)).willReturn(Optional.of(senderWallet));
-      given(userRepository.findById(RECEIVER_ID)).willReturn(Optional.of(new User()));
-      given(walletRepository.findForUpdateByUserId(RECEIVER_ID)).willReturn(Optional.of(recipientWallet));
+      given(walletRepository.findForUpdateByUserId(any(UUID.class))).willAnswer(invocation -> {
+        UUID id = invocation.getArgument(0);
+        if (id.equals(SENDER_ID)) return Optional.of(senderWallet);
+        if (id.equals(RECEIVER_ID)) return Optional.of(receiverWallet);
+        return Optional.empty();
+      });
+
+      given(userRepository.findById(RECEIVER_ID)).willReturn(Optional.of(receiverUser));
 
       // When & Then
       assertThatThrownBy(() -> transactionService.transfer(request))
@@ -390,8 +413,68 @@ public class TransactionServiceTest {
           .hasMessage("Insufficient balance");
 
       then(walletRepository).shouldHaveNoMoreInteractions();
-      then(transactionRepository).shouldHaveNoInteractions();
-      then(transactionMapper).shouldHaveNoInteractions();
+      then(transactionRepository).shouldHaveNoMoreInteractions();
+      then(transactionMapper).shouldHaveNoMoreInteractions();
+    }
+
+    @Test
+    @DisplayName("Should execute transfer successfully when sender ID is smaller than recipient ID")
+    void givenSenderIdSmallerThanRecipient_whenTransfer_thenSuccess() {
+      // Given
+      UUID smallerId = UUID.fromString("00000000-0000-0000-0000-000000000001");
+      UUID largerId = UUID.fromString("00000000-0000-0000-0000-000000000002");
+
+      ReflectionTestUtils.setField(senderUser, "id", smallerId);
+      ReflectionTestUtils.setField(receiverUser, "id", largerId);
+
+      TransferRequest request = new TransferRequest(largerId, BigDecimal.valueOf(50.00));
+      mockAuthenticatedUser(smallerId);
+
+      given(walletRepository.findForUpdateByUserId(any(UUID.class))).willAnswer(invocation -> {
+        UUID id = invocation.getArgument(0);
+        if (id.equals(smallerId)) return Optional.of(senderWallet);
+        if (id.equals(largerId)) return Optional.of(receiverWallet);
+        return Optional.empty();
+      });
+
+      given(userRepository.findById(largerId)).willReturn(Optional.of(receiverUser));
+
+      // When
+      transactionService.transfer(request);
+
+      // Then
+      assertThat(senderWallet.getBalance()).isEqualByComparingTo(BigDecimal.valueOf(150.00));
+      assertThat(receiverWallet.getBalance()).isEqualByComparingTo(BigDecimal.valueOf(100.00));
+    }
+
+    @Test
+    @DisplayName("Should execute transfer successfully when sender ID is larger than recipient ID (Lock Ordering inversion)")
+    void givenSenderIdLargerThanRecipient_whenTransfer_thenSuccessWithInvertedLockOrder() {
+      // Given
+      UUID largerId = UUID.fromString("00000000-0000-0000-0000-000000000002");
+      UUID smallerId = UUID.fromString("00000000-0000-0000-0000-000000000001");
+
+      ReflectionTestUtils.setField(senderUser, "id", largerId);
+      ReflectionTestUtils.setField(receiverUser, "id", smallerId);
+
+      TransferRequest request = new TransferRequest(smallerId, BigDecimal.valueOf(50.00));
+      mockAuthenticatedUser(largerId);
+
+      given(walletRepository.findForUpdateByUserId(any(UUID.class))).willAnswer(invocation -> {
+        UUID id = invocation.getArgument(0);
+        if (id.equals(largerId)) return Optional.of(senderWallet);
+        if (id.equals(smallerId)) return Optional.of(receiverWallet);
+        return Optional.empty();
+      });
+
+      given(userRepository.findById(smallerId)).willReturn(Optional.of(receiverUser));
+
+      // When
+      transactionService.transfer(request);
+
+      // Then
+      assertThat(senderWallet.getBalance()).isEqualByComparingTo(BigDecimal.valueOf(150.00));
+      assertThat(receiverWallet.getBalance()).isEqualByComparingTo(BigDecimal.valueOf(100.00));
     }
   }
 
