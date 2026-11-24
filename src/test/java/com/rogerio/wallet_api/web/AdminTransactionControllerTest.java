@@ -1,5 +1,6 @@
 package com.rogerio.wallet_api.web;
 
+import com.rogerio.wallet_api.domain.model.enums.TransactionDirection;
 import com.rogerio.wallet_api.domain.model.enums.TransactionType;
 import com.rogerio.wallet_api.dto.response.TransactionStatementResponse;
 import com.rogerio.wallet_api.service.TransactionService;
@@ -42,6 +43,7 @@ public class AdminTransactionControllerTest extends BaseWebTest {
         UUID.randomUUID(),
         BigDecimal.valueOf(100.00),
         TransactionType.DEPOSIT,
+        TransactionDirection.OUT,
         null,
         Instant.now()
     );

@@ -492,8 +492,9 @@ public class TransactionServiceTest {
         // Given
         mockAuthenticatedUser(USER_ID);
 
+        UUID walletId = UUID.randomUUID();
         Wallet wallet = new Wallet();
-        ReflectionTestUtils.setField(wallet, "id", UUID.randomUUID());
+        ReflectionTestUtils.setField(wallet, "id", walletId);
 
         Pageable pageable = PageRequest.of(0, 10);
         Transaction transaction = new Transaction();
@@ -502,16 +503,17 @@ public class TransactionServiceTest {
         TransactionStatementResponse expectedResponse = mock(TransactionStatementResponse.class);
 
         given(walletRepository.findByUserId(USER_ID)).willReturn(Optional.of(wallet));
-
         given(transactionRepository.findAll(any(Specification.class), eq(pageable))).willReturn(transactionPage);
-        given(transactionMapper.toStatementDto(transaction)).willReturn(expectedResponse);
+        given(transactionMapper.toStatementDto(transaction, walletId)).willReturn(expectedResponse);
 
+        // When
         Page<TransactionStatementResponse> response = transactionService.getCustomerStatement(null, null, null, pageable);
 
         // Then
         assertThat(response).isNotNull();
         assertThat(response.getContent()).hasSize(1);
         assertThat(response.getContent().getFirst()).isEqualTo(expectedResponse);
+        then(transactionMapper).should().toStatementDto(transaction, walletId);
       }
 
       @Test
@@ -566,7 +568,6 @@ public class TransactionServiceTest {
         Page<Transaction> emptyPage = new PageImpl<>(List.of(), pageable, 0);
 
         given(walletRepository.findByUserId(USER_ID)).willReturn(Optional.of(wallet));
-
         given(transactionRepository.findAll(any(Specification.class), eq(pageable))).willReturn(emptyPage);
 
         // When
@@ -574,8 +575,40 @@ public class TransactionServiceTest {
 
         // Then
         assertThat(result).isNotNull();
-
         then(transactionRepository).should().findAll(any(Specification.class), eq(pageable));
+        then(transactionMapper).shouldHaveNoInteractions();
+      }
+
+      @Test
+      @DisplayName("Should pass customer wallet ID to mapper for sent and received transactions")
+      void givenTransactions_whenGetCustomerStatement_thenPassesWalletIdToMapper() {
+        // Given
+        mockAuthenticatedUser(USER_ID);
+        UUID walletId = UUID.randomUUID();
+        Wallet wallet = new Wallet();
+        ReflectionTestUtils.setField(wallet, "id", walletId);
+
+        Pageable pageable = PageRequest.of(0, 10);
+        Transaction sentTx = new Transaction();
+        Transaction receivedTx = new Transaction();
+        Page<Transaction> page = new PageImpl<>(List.of(sentTx, receivedTx), pageable, 2);
+
+        TransactionStatementResponse sentDto = mock(TransactionStatementResponse.class);
+        TransactionStatementResponse receivedDto = mock(TransactionStatementResponse.class);
+
+        given(walletRepository.findByUserId(USER_ID)).willReturn(Optional.of(wallet));
+        given(transactionRepository.findAll(any(Specification.class), eq(pageable))).willReturn(page);
+        given(transactionMapper.toStatementDto(sentTx, walletId)).willReturn(sentDto);
+        given(transactionMapper.toStatementDto(receivedTx, walletId)).willReturn(receivedDto);
+
+        // When
+        Page<TransactionStatementResponse> result =
+            transactionService.getCustomerStatement(null, null, null, pageable);
+
+        // Then
+        assertThat(result.getContent()).containsExactly(sentDto, receivedDto);
+        then(transactionMapper).should().toStatementDto(sentTx, walletId);
+        then(transactionMapper).should().toStatementDto(receivedTx, walletId);
       }
     }
 
@@ -592,8 +625,9 @@ public class TransactionServiceTest {
         User targetUser = new User();
         ReflectionTestUtils.setField(targetUser, "id", TARGET_USER_ID);
 
+        UUID walletId = UUID.randomUUID();
         Wallet wallet = new Wallet();
-        ReflectionTestUtils.setField(wallet, "id", UUID.randomUUID());
+        ReflectionTestUtils.setField(wallet, "id", walletId);
 
         Pageable pageable = PageRequest.of(0, 10);
         Transaction transaction = new Transaction();
@@ -604,7 +638,7 @@ public class TransactionServiceTest {
         given(userRepository.findById(TARGET_USER_ID)).willReturn(Optional.of(targetUser));
         given(walletRepository.findByUserId(TARGET_USER_ID)).willReturn(Optional.of(wallet));
         given(transactionRepository.findAll(any(Specification.class), eq(pageable))).willReturn(transactionPage);
-        given(transactionMapper.toStatementDto(transaction)).willReturn(expectedResponse);
+        given(transactionMapper.toStatementDto(transaction, walletId)).willReturn(expectedResponse);
 
         // When
         Page<TransactionStatementResponse> response = transactionService.getStatementForAdmin(TARGET_USER_ID, pageable);
@@ -613,6 +647,7 @@ public class TransactionServiceTest {
         assertThat(response).isNotNull();
         assertThat(response.getContent()).hasSize(1);
         assertThat(response.getContent().getFirst()).isEqualTo(expectedResponse);
+        then(transactionMapper).should().toStatementDto(transaction, walletId);
       }
 
       @Test
@@ -652,6 +687,41 @@ public class TransactionServiceTest {
 
         then(transactionRepository).shouldHaveNoInteractions();
         then(transactionMapper).shouldHaveNoInteractions();
+      }
+
+      @Test
+      @DisplayName("Should pass target wallet ID to mapper for sent and received transactions")
+      void givenTransactions_whenGetStatementForAdmin_thenPassesTargetWalletIdToMapper() {
+        // Given
+        User targetUser = new User();
+        ReflectionTestUtils.setField(targetUser, "id", TARGET_USER_ID);
+
+        UUID walletId = UUID.randomUUID();
+        Wallet wallet = new Wallet();
+        ReflectionTestUtils.setField(wallet, "id", walletId);
+
+        Pageable pageable = PageRequest.of(0, 10);
+        Transaction sentTx = new Transaction();
+        Transaction receivedTx = new Transaction();
+        Page<Transaction> page = new PageImpl<>(List.of(sentTx, receivedTx), pageable, 2);
+
+        TransactionStatementResponse sentDto = mock(TransactionStatementResponse.class);
+        TransactionStatementResponse receivedDto = mock(TransactionStatementResponse.class);
+
+        given(userRepository.findById(TARGET_USER_ID)).willReturn(Optional.of(targetUser));
+        given(walletRepository.findByUserId(TARGET_USER_ID)).willReturn(Optional.of(wallet));
+        given(transactionRepository.findAll(any(Specification.class), eq(pageable))).willReturn(page);
+        given(transactionMapper.toStatementDto(sentTx, walletId)).willReturn(sentDto);
+        given(transactionMapper.toStatementDto(receivedTx, walletId)).willReturn(receivedDto);
+
+        // When
+        Page<TransactionStatementResponse> result =
+            transactionService.getStatementForAdmin(TARGET_USER_ID, pageable);
+
+        // Then
+        assertThat(result.getContent()).containsExactly(sentDto, receivedDto);
+        then(transactionMapper).should().toStatementDto(sentTx, walletId);
+        then(transactionMapper).should().toStatementDto(receivedTx, walletId);
       }
     }
   }

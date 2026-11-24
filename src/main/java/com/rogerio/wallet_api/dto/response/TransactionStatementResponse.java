@@ -1,5 +1,6 @@
 package com.rogerio.wallet_api.dto.response;
 
+import com.rogerio.wallet_api.domain.model.enums.TransactionDirection;
 import com.rogerio.wallet_api.domain.model.enums.TransactionType;
 
 import java.math.BigDecimal;
@@ -10,6 +11,7 @@ public record TransactionStatementResponse(
     UUID id,
     BigDecimal amount,
     TransactionType type,
+    TransactionDirection direction,
     UUID recipientWalletId,
     Instant createdAt
 ) {

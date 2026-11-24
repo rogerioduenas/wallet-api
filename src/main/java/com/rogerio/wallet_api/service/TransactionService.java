@@ -127,26 +127,28 @@ public class TransactionService {
 
     UUID customerId = getCurrentUserIdFromSecurityContext();
     Wallet customerWallet = getWalletByUserId(customerId);
+    UUID walletId = customerWallet.getId();
 
-    Specification<Transaction> filter = Specification.where(TransactionFilter.belongsToWallet(customerWallet.getId()))
+    Specification<Transaction> filter = Specification.where(TransactionFilter.belongsToWallet(walletId))
         .and(TransactionFilter.createdAfter(startDate))
         .and(TransactionFilter.createdBefore(endDate))
         .and(TransactionFilter.hasType(type));
 
     Page<Transaction> transactions = transactionRepository.findAll(filter, pageable);
 
-    return transactions.map(transactionMapper::toStatementDto);
+    return transactions.map(tx -> transactionMapper.toStatementDto(tx, walletId));
   }
 
   @Transactional(readOnly = true)
   public Page<TransactionStatementResponse> getStatementForAdmin(UUID userId, Pageable pageable) {
     User customer = findUserById(userId);
     Wallet customerWallet = getWalletByUserId(customer.getId());
+    UUID walletId = customerWallet.getId();
 
-    Specification<Transaction> filter = TransactionFilter.belongsToWallet(customerWallet.getId());
+    Specification<Transaction> filter = TransactionFilter.belongsToWallet(walletId);
     Page<Transaction> transactions = transactionRepository.findAll(filter, pageable);
 
-    return transactions.map(transactionMapper::toStatementDto);
+    return transactions.map(tx -> transactionMapper.toStatementDto(tx, walletId));
   }
 
   private UUID getCurrentUserIdFromSecurityContext() {
