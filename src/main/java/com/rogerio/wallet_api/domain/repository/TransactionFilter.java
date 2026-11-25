@@ -1,7 +1,10 @@
 package com.rogerio.wallet_api.domain.repository;
 
 import com.rogerio.wallet_api.domain.model.Transaction;
+import com.rogerio.wallet_api.domain.model.Wallet;
 import com.rogerio.wallet_api.domain.model.enums.TransactionType;
+import jakarta.persistence.criteria.Join;
+import jakarta.persistence.criteria.JoinType;
 import org.springframework.data.jpa.domain.Specification;
 
 import java.time.Instant;
@@ -10,7 +13,14 @@ import java.util.UUID;
 public class TransactionFilter {
 
   public static Specification<Transaction> belongsToWallet(UUID walletId) {
-    return (root, query, cb) -> cb.equal(root.get("wallet").get("id"), walletId);
+    return (root, query, cb) -> {
+      Join<Transaction, Wallet> recipientJoin = root.join("recipientWallet", JoinType.LEFT);
+
+      return cb.or(
+          cb.equal(root.get("wallet").get("id"), walletId),
+          cb.equal(recipientJoin.get("id"), walletId)
+      );
+    };
   }
 
   public static Specification<Transaction> createdAfter(Instant startDate) {

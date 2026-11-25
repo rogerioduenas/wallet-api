@@ -1,5 +1,6 @@
 package com.rogerio.wallet_api.web;
 
+import com.rogerio.wallet_api.domain.model.enums.TransactionDirection;
 import com.rogerio.wallet_api.domain.model.enums.TransactionType;
 import com.rogerio.wallet_api.dto.request.DepositRequest;
 import com.rogerio.wallet_api.dto.request.TransferRequest;
@@ -355,6 +356,7 @@ public class TransactionControllerTest extends BaseWebTest {
           UUID.randomUUID(),
           BigDecimal.valueOf(150.00),
           TransactionType.DEPOSIT,
+          TransactionDirection.IN,
           null,
           Instant.now()
       );
@@ -374,6 +376,7 @@ public class TransactionControllerTest extends BaseWebTest {
           .andExpect(jsonPath("$.content[0].id").value(statementResponse.id().toString()))
           .andExpect(jsonPath("$.content[0].amount").value(statementResponse.amount().doubleValue()))
           .andExpect(jsonPath("$.content[0].type").value(statementResponse.type().toString()))
+          .andExpect(jsonPath("$.content[0].direction").value(statementResponse.direction().name()))
           .andExpect(jsonPath("$.totalElements").value(1));
 
       then(transactionService).should().getCustomerStatement(any(), any(), any(), any(Pageable.class));
